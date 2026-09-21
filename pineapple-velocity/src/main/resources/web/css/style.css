@@ -1,7 +1,3 @@
-/* ==========================================================================
-   PineApple — Modern UI Stylesheet & Cinematic Transitions
-   ========================================================================== */
-
 :root {
     --bg-main: #f8fafc;
     --bg-surface: #ffffff;
@@ -24,6 +20,7 @@
 
     --target-header-height: 305px;
 
+    --font-brand: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
@@ -68,9 +65,6 @@ html, body {
     width: 100%;
 }
 
-/* ==========================================================================
-   Main Two-Panel Layout (Curved Canva Mockup Style)
-   ========================================================================== */
 .canva-wrapper {
     display: flex;
     min-height: 100vh;
@@ -80,7 +74,6 @@ html, body {
     background-color: #ffffff;
 }
 
-/* Left Hero Curved Section */
 .hero-curved-section {
     flex: 1.1;
     position: relative;
@@ -92,7 +85,7 @@ html, body {
     padding: 4rem 5rem;
     z-index: 2;
     overflow: hidden;
-    /* Iconic Canva curved shape */
+
     border-top-right-radius: 24% 50%;
     border-bottom-right-radius: 24% 50%;
     box-shadow: 20px 0 60px rgba(0, 0, 0, 0.2);
@@ -102,7 +95,6 @@ html, body {
     border-radius 0.55s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-/* Ambient glow in dark curved section */
 .curved-backdrop {
     position: absolute;
     top: -20%;
@@ -197,7 +189,6 @@ html, body {
     border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* Auth transition root flash prevention and complete scroll isolation */
 html.auth-entering-root,
 html.auth-entering-root body,
 html.auth-entering-root #app-root,
@@ -225,7 +216,6 @@ html.auth-entering-root .dashboard-container {
     pointer-events: none !important;
 }
 
-/* Strict zero-scroll lock during active transitions */
 html.auth-transition-active,
 body.auth-transition-active {
     overflow: hidden !important;
@@ -233,21 +223,11 @@ body.auth-transition-active {
     overscroll-behavior: none !important;
 }
 
-/* Hide toast popups during transition */
 .auth-transition-active #toast-container {
     opacity: 0 !important;
     pointer-events: none !important;
 }
 
-/* ==========================================================================
-   Seamless Stop-Frame Cinematic Handover (CSS Keyframe Driven):
-   Auth: Sweep across + PineApple slides down from top -> Exact Stop-Frame
-   Dashboard: Starts from exact stop-frame -> Continues contraction & reveal
-   ========================================================================== */
-
-/* 1. AUTH TRANSITION PHASE (Main Page): */
-
-/* Centered Transition Brand Elements: Strictly centered in the browser viewport */
 .auth-center-brand-stage {
     position: fixed;
     top: 50%;
@@ -260,7 +240,6 @@ body.auth-transition-active {
     opacity: 0;
 }
 
-/* Dashboard Centered Brand: strictly hidden in resting state! */
 .dash-center-brand-stage {
     display: none;
     opacity: 0;
@@ -268,7 +247,6 @@ body.auth-transition-active {
     visibility: hidden;
 }
 
-/* Only active during entrance animation */
 .dashboard-page.dashboard-entering .dash-center-brand-stage {
     display: block;
     position: fixed;
@@ -326,7 +304,6 @@ body.auth-transition-active {
     }
 }
 
-/* Hero content on the left: swipes to the LEFT completely off the screen! */
 .canva-wrapper.auth-transitioning .hero-content {
     animation: heroContentSwipeLeft 0.65s cubic-bezier(0.65, 0, 0.35, 1) forwards;
     pointer-events: none;
@@ -344,7 +321,6 @@ body.auth-transition-active {
     }
 }
 
-/* Big PineApple text: emerges on black background all the way from beneath the bottom into center */
 .canva-wrapper.auth-transitioning .auth-center-brand-stage {
     animation: brandEmergeBottomCenter 0.95s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
     will-change: transform, opacity;
@@ -391,9 +367,6 @@ body.auth-transition-active {
     transition: opacity 0.5s ease;
 }
 
-/* 2. DASHBOARD CONTINUATION PHASE: */
-
-/* Initial Stop-Frame: Completely solid black screen with centered PineApple text */
 .dashboard-page.dashboard-entering {
     position: relative;
     min-height: 100vh;
@@ -410,13 +383,11 @@ body.auth-transition-active {
     background: #000000;
 }
 
-/* Centered brand matches stop-frame position */
 .dashboard-page.dashboard-entering .dash-center-brand-stage {
     opacity: 1;
     transform: translate(-50%, -50%);
 }
 
-/* PineApple brand in navbar starts hidden above viewport */
 .dashboard-page.dashboard-entering .nav-brand {
     opacity: 0;
     transform: translateY(-60px);
@@ -442,14 +413,12 @@ body.auth-transition-active {
     pointer-events: none;
 }
 
-/* Morphing Phase: Continuous 60fps contraction from 100vh down to resting header */
 .dashboard-page.dashboard-entering.dashboard-morphing .dashboard-curved-header {
     animation: morphHeaderUp 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     will-change: height, min-height, border-radius;
     transform: translateZ(0);
 }
 
-/* Centered brand rides up together with the black background */
 .dashboard-page.dashboard-entering.dashboard-morphing .dash-center-brand-stage {
     animation: brandRideUpWithCurtain 1.05s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards;
     will-change: transform, opacity;
@@ -470,7 +439,6 @@ body.auth-transition-active {
     }
 }
 
-/* ONLY AFTER THAT: PineApple navbar brand slides down from the top into header */
 .dashboard-page.dashboard-entering.dashboard-morphing .nav-brand {
     animation: brandDropFromTop 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.75s forwards;
     will-change: opacity, transform;
@@ -523,7 +491,6 @@ body.auth-transition-active {
     }
 }
 
-/* User menu fades & slides in alongside brand landing */
 .dashboard-page.dashboard-entering.dashboard-morphing .nav-user-menu {
     animation: revealUserMenu 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.85s forwards;
     will-change: opacity, transform;
@@ -540,7 +507,6 @@ body.auth-transition-active {
     }
 }
 
-/* Welcome banner fades & slides up inside header */
 .dashboard-page.dashboard-entering.dashboard-morphing .dash-hero-banner {
     animation: revealHeroBanner 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.90s forwards;
     will-change: opacity, transform;
@@ -557,7 +523,6 @@ body.auth-transition-active {
     }
 }
 
-/* Header blob reveals smoothly */
 .dashboard-page.dashboard-entering.dashboard-morphing .curved-header-blob {
     animation: revealBlob 1.1s ease 0.4s forwards;
 }
@@ -571,7 +536,6 @@ body.auth-transition-active {
     }
 }
 
-/* Lower dashboard cards container slides up in sync */
 .dashboard-page.dashboard-entering.dashboard-morphing .dashboard-container {
     animation: revealContainer 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
     pointer-events: auto;
@@ -610,9 +574,6 @@ body.auth-transition-active {
     }
 }
 
-/* ==========================================================================
-   Right Section & Styled Button Control Field
-   ========================================================================== */
 .auth-section {
     flex: 1.3;
     background: #ffffff;
@@ -653,7 +614,6 @@ body.auth-transition-active {
     color: var(--color-dark);
 }
 
-/* Button Control Field (Segmented Slider) */
 .button-control-field {
     margin-bottom: 2rem;
 }
@@ -720,9 +680,6 @@ body.auth-transition-active {
     transform: scale(0.97);
 }
 
-/* ==========================================================================
-   Smooth Sliding Tab Panes & Form Container
-   ========================================================================== */
 .forms-wrapper {
     position: relative;
     overflow: hidden;
@@ -815,7 +772,6 @@ body.auth-transition-active {
     }
 }
 
-/* Forms & Inputs */
 .auth-form {
     display: flex;
     flex-direction: column;
@@ -918,7 +874,6 @@ body.auth-transition-active {
     gap: 0.85rem;
 }
 
-/* Form Validation Feedback & Shake */
 @keyframes formShake {
     0%, 100% { transform: translateX(0); }
     15%, 45%, 75% { transform: translateX(-7px); }
@@ -934,7 +889,6 @@ body.auth-transition-active {
     box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
 }
 
-/* Primary Action Buttons */
 .form-action-group {
     margin-top: 0.5rem;
 }
@@ -1002,7 +956,6 @@ body.auth-transition-active {
     to { transform: rotate(360deg); }
 }
 
-/* Ripple Click Animation */
 .ripple-effect {
     position: relative;
     overflow: hidden;
@@ -1024,7 +977,6 @@ body.auth-transition-active {
     }
 }
 
-/* Social Login Divider & Secondary Buttons */
 .social-divider {
     display: flex;
     align-items: center;
@@ -1083,15 +1035,11 @@ body.auth-transition-active {
     font-size: 1.05rem;
 }
 
-/* ==========================================================================
-   Dashboard Page with Top Curved Header ("Черная капля сверху")
-   ========================================================================== */
 .dashboard-page {
     min-height: 100vh;
     background-color: #f8fafc;
 }
 
-/* Black Curved Top Header */
 .dashboard-curved-header {
     background: #000000;
     color: #ffffff;
@@ -1238,12 +1186,6 @@ body.auth-transition-active {
     z-index: 3;
 }
 
-.dash-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.5rem;
-}
-
 .info-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -1367,9 +1309,6 @@ body.auth-transition-active {
     color: #ffffff;
 }
 
-/* ==========================================================================
-   Toast Notifications
-   ========================================================================== */
 .toast-container {
     position: fixed;
     top: 4.8rem;
@@ -1446,9 +1385,6 @@ body.auth-transition-active {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ==========================================================================
-   Responsive Adaptability
-   ========================================================================== */
 @media (max-width: 960px) {
     .canva-wrapper {
         flex-direction: column;
@@ -1493,21 +1429,26 @@ body.auth-transition-active {
     }
 }
 
-/* ==========================================================================
-   Language Switcher Component
-   ========================================================================== */
 .lang-switcher-container {
     position: fixed;
     top: 1.5rem;
     right: 2rem;
     z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.lang-dropdown-wrapper {
+    position: relative;
+    display: inline-flex;
 }
 
 .lang-switcher-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.45rem 0.9rem;
+    gap: 0.55rem;
+    padding: 0.45rem 0.85rem;
     background: rgba(255, 255, 255, 0.88);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -1534,22 +1475,42 @@ body.auth-transition-active {
     transform: scale(0.95);
 }
 
-.lang-globe-icon {
-    font-size: 0.95rem;
-    color: var(--color-dark);
-    transition: transform 0.3s ease;
+.lang-flag-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 15px;
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
 }
 
-.lang-switcher-btn:hover .lang-globe-icon {
-    transform: rotate(20deg);
+.flag-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .lang-code-text {
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     font-size: 0.82rem;
+    font-weight: 700;
 }
 
-/* Dashboard variant in the curved dark header */
+.lang-chevron-icon {
+    font-size: 0.65rem;
+    color: var(--color-text-secondary);
+    transition: transform 0.25s ease;
+    margin-left: 0.1rem;
+}
+
+.lang-dropdown-wrapper.open .lang-chevron-icon {
+    transform: rotate(180deg);
+}
+
 .lang-switcher-dash {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -1557,8 +1518,8 @@ body.auth-transition-active {
     box-shadow: none;
 }
 
-.lang-switcher-dash .lang-globe-icon {
-    color: #ffffff;
+.lang-switcher-dash .lang-chevron-icon {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .lang-switcher-dash:hover {
@@ -1566,6 +1527,170 @@ body.auth-transition-active {
     border-color: rgba(255, 255, 255, 0.3);
     color: #ffffff;
     transform: translateY(-1px);
+}
+
+.lang-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    max-width: 290px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-md);
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.18), 0 6px 16px rgba(0, 0, 0, 0.08);
+    z-index: 10001;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    transform-origin: top right;
+    animation: langDropdownOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lang-dropdown-menu-dash {
+    top: calc(100% + 8px);
+    right: 0;
+}
+
+.lang-dropdown-wrapper.open .lang-dropdown-menu {
+    display: flex;
+}
+
+@keyframes langDropdownOpen {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.lang-dropdown-header {
+    padding: 0.65rem 0.9rem 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.lang-dropdown-list {
+    padding: 0.35rem;
+    overflow-y: auto;
+    max-height: 310px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.lang-dropdown-list::-webkit-scrollbar {
+    width: 5px;
+}
+.lang-dropdown-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+}
+
+.lang-option-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body), sans-serif;
+    text-align: left;
+    width: 100%;
+    color: var(--color-text-primary);
+    transition: background-color 0.15s ease, color 0.15s ease;
+    user-select: none;
+}
+
+.lang-option-item:hover {
+    background: #f1f5f9;
+}
+
+.lang-option-item.active {
+    background: #e2e8f0;
+    font-weight: 700;
+}
+
+.lang-option-item .lang-flag-badge {
+    width: 22px;
+    height: 16px;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.lang-option-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.lang-option-name {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--color-dark);
+}
+
+.lang-option-native {
+    font-size: 0.74rem;
+    color: var(--color-text-secondary);
+}
+
+.lang-option-check {
+    font-size: 0.75rem;
+    color: #10b981;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.lang-option-item.active .lang-option-check {
+    opacity: 1;
+}
+
+[data-theme="dark"] .lang-dropdown-menu {
+    background: rgba(15, 23, 42, 0.96) !important;
+    border-color: #1e293b !important;
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .lang-dropdown-header {
+    color: #94a3b8 !important;
+    border-bottom-color: #1e293b !important;
+}
+
+[data-theme="dark"] .lang-option-item {
+    color: #f8fafc !important;
+}
+
+[data-theme="dark"] .lang-option-name {
+    color: #f8fafc !important;
+}
+
+[data-theme="dark"] .lang-option-native {
+    color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .lang-option-item:hover {
+    background: #1e293b !important;
+}
+
+[data-theme="dark"] .lang-option-item.active {
+    background: #334155 !important;
+}
+
+[data-theme="dark"] .lang-dropdown-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15) !important;
 }
 
 @media (max-width: 768px) {
@@ -1581,11 +1706,6 @@ body.auth-transition-active {
     transition: opacity 0.25s ease;
 }
 
-/* ==========================================================================
-   Host Monitor Enhancements & Metrics UI
-   ========================================================================== */
-
-/* Subtitle tag in navbar */
 .nav-subtitle-tag {
     font-size: 0.72rem;
     font-weight: 700;
@@ -1598,7 +1718,6 @@ body.auth-transition-active {
     margin-left: 0.35rem;
 }
 
-/* Live Telemetry Pulse Pill */
 .live-status-pill {
     display: inline-flex;
     align-items: center;
@@ -1648,7 +1767,6 @@ body.auth-transition-active {
     }
 }
 
-/* Hero Banner Actions */
 .dash-hero-actions {
     display: flex;
     align-items: center;
@@ -1697,7 +1815,6 @@ body.auth-transition-active {
     color: #ffffff !important;
 }
 
-/* Host Config Card on Auth Page */
 .config-hint-badge {
     font-family: ui-monospace, SFMono-Regular, monospace;
     font-size: 0.76rem;
@@ -1756,7 +1873,6 @@ body.auth-transition-active {
     font-family: ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Metric Cards & Live Progress Bars */
 .metric-card {
     position: relative;
     overflow: hidden;
@@ -1818,7 +1934,6 @@ body.auth-transition-active {
     transition: color 0.3s ease;
 }
 
-/* Progress Meter Bars */
 .meter-bar-track {
     width: 100%;
     height: 10px;
@@ -1882,7 +1997,6 @@ body.auth-transition-active {
     gap: 0.5rem !important;
 }
 
-/* Core breakdown accordion */
 .cores-meter-container {
     margin-top: 0.6rem;
     border-top: 1px solid #f1f5f9;
@@ -1961,7 +2075,6 @@ body.auth-transition-active {
     text-align: right;
 }
 
-/* Active Processes Card & Table */
 .processes-card {
     grid-column: 1 / -1;
     margin-top: 0.5rem;
@@ -2077,10 +2190,6 @@ body.auth-transition-active {
     color: #dc2626;
 }
 
-/* ==========================================================================
-   Remember Me Checkbox & Paper Minecraft Telemetry UI
-   ========================================================================== */
-
 .remember-me-row {
     display: flex;
     align-items: center;
@@ -2170,7 +2279,6 @@ body.auth-transition-active {
     color: #ef4444 !important;
 }
 
-/* Minecraft Player & World Badges */
 .player-avatar {
     width: 28px;
     height: 28px;
@@ -2249,9 +2357,6 @@ body.auth-transition-active {
     padding-bottom: 1.5rem;
 }
 
-/* ==========================================================================
-   Flippable Metric Cards, Telemetry Graphs & Accessibility
-   ========================================================================== */
 .dash-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -2301,7 +2406,6 @@ body.auth-transition-active {
     box-sizing: border-box;
 }
 
-/* Front Face */
 .metric-face-front {
     z-index: 2;
     transform: rotateY(0deg);
@@ -2344,9 +2448,6 @@ body.auth-transition-active {
     border-color: #0f172a;
 }
 
-
-
-/* Back Face: Clicking anywhere on the back face flips back */
 .metric-face-back {
     transform: rotateY(180deg);
     z-index: 1;
@@ -2370,7 +2471,6 @@ body.auth-transition-active {
     cursor: default;
 }
 
-/* Back Face Toolbar */
 .cartesian-back-toolbar {
     display: flex;
     align-items: center;
@@ -2393,7 +2493,6 @@ body.auth-transition-active {
     color: var(--color-dark);
 }
 
-/* Stylized Pill Segmented Controls on Back Face */
 .cartesian-time-selector {
     display: inline-flex;
     align-items: center;
@@ -2441,7 +2540,6 @@ body.auth-transition-active {
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.5);
 }
 
-/* Flip Back Button */
 .btn-flip-back {
     width: 26px;
     height: 26px;
@@ -2465,7 +2563,6 @@ body.auth-transition-active {
     transform: rotate(-180deg);
 }
 
-/* Chart Canvas Wrapper */
 .cartesian-canvas-wrapper {
     position: relative;
     width: 100%;
@@ -2482,7 +2579,6 @@ body.auth-transition-active {
     display: block;
 }
 
-/* Chart Back Footer */
 .cartesian-back-footer {
     display: flex;
     justify-content: space-around;
@@ -2512,7 +2608,6 @@ body.auth-transition-active {
     color: #0f172a;
 }
 
-/* Dedicated World & Entities Strip */
 .world-summary-strip {
     display: flex;
     align-items: center;
@@ -2551,12 +2646,10 @@ body.auth-transition-active {
     font-size: 0.96rem;
 }
 
-/* Meter Bar Minimum Width */
 .meter-bar-fill.has-val {
     min-width: 6px;
 }
 
-/* Player Gamemode Badges */
 .mode-badge {
     display: inline-block;
     padding: 0.2rem 0.6rem;
@@ -2603,7 +2696,6 @@ body.auth-transition-active {
     font-size: 0.82rem;
 }
 
-/* Host Memory Warning Thresholds */
 .mem-warn {
     color: #f59e0b !important;
     font-weight: 700;
@@ -2614,7 +2706,6 @@ body.auth-transition-active {
     font-weight: 700;
 }
 
-/* Keyboard Accessibility Focus Visible */
 .metric-face-front:focus-visible,
 .btn-time-pill:focus-visible,
 .btn-flip-back:focus-visible,
@@ -2625,7 +2716,6 @@ input:focus-visible {
     outline-offset: 3px;
 }
 
-/* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -2644,13 +2734,6 @@ input:focus-visible {
     }
 }
 
-/* ==========================================================================
-   Multi-Server Network Monitoring & Cinematic Top-Down Transitions
-   ========================================================================== */
-
-/* ==========================================================================
-   Dedicated GPU-Accelerated Cinematic Curtain (Auth -> Dashboard Parity)
-   ========================================================================== */
 .cinematic-curtain {
     position: fixed;
     top: 0;
@@ -2708,7 +2791,6 @@ input:focus-visible {
     letter-spacing: 0.14em;
 }
 
-/* Phase 1: Dropping down smoothly over screen */
 .cinematic-curtain.curtain-dropping {
     visibility: visible;
     pointer-events: auto;
@@ -2742,7 +2824,6 @@ input:focus-visible {
     }
 }
 
-/* Phase 2: Retracting smoothly upwards, revealing destination */
 .cinematic-curtain.curtain-retracting {
     visibility: visible;
     pointer-events: auto;
@@ -2776,7 +2857,6 @@ input:focus-visible {
     }
 }
 
-/* Navbar brand/title drops down into place like Auth -> Dashboard */
 .nav-brand-slide-in {
     animation: navBrandDropLanding 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both !important;
     will-change: transform, opacity;
@@ -2793,13 +2873,11 @@ input:focus-visible {
     }
 }
 
-/* Fade out resting navbar brand during curtain drop to avoid overlap */
 .dashboard-page.curtain-dropping .nav-brand {
     opacity: 0;
     transition: opacity 0.2s ease;
 }
 
-/* Return button to network overview */
 .btn-network-return {
     display: inline-flex;
     align-items: center;
@@ -2825,7 +2903,6 @@ input:focus-visible {
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
-/* Network Hub Layout & Server List */
 .network-hub-view {
     display: flex;
     flex-direction: column;
@@ -2835,7 +2912,6 @@ input:focus-visible {
     width: 100%;
 }
 
-/* Hub Header Card (styled cleanly like server-row-card) */
 .hub-header-card {
     display: flex;
     justify-content: space-between;
@@ -2914,7 +2990,6 @@ input:focus-visible {
     gap: 0.9rem;
 }
 
-/* Interactive Server Row Card */
 .server-row-card {
     display: grid;
     grid-template-columns: 240px 1fr 1fr 1fr 140px;
@@ -3069,13 +3144,8 @@ input:focus-visible {
     }
 }
 
-
-/* ==========================================================================
-   Comprehensive Mobile & Tablet Adaptation (< 768px & < 480px)
-   ========================================================================== */
-
 @media (max-width: 768px) {
-    /* Base Container & Spacing */
+
     html, body {
         overflow-x: hidden;
         width: 100%;
@@ -3086,7 +3156,6 @@ input:focus-visible {
         margin: 1.25rem auto 2.5rem !important;
     }
 
-    /* Curved Dark Top Header */
     .dashboard-curved-header {
         height: auto !important;
         min-height: auto !important;
@@ -3098,7 +3167,6 @@ input:focus-visible {
         padding: 0 1.1rem;
     }
 
-    /* Top Navigation Bar */
     .dashboard-nav {
         flex-wrap: wrap;
         gap: 0.75rem;
@@ -3128,7 +3196,6 @@ input:focus-visible {
         font-size: 0.82rem;
     }
 
-    /* Hero Banners */
     .dash-hero-banner {
         flex-direction: column;
         align-items: flex-start;
@@ -3163,7 +3230,6 @@ input:focus-visible {
         font-size: 0.82rem;
     }
 
-    /* 3D Flippable Metric Cards Grid */
     .dash-grid {
         grid-template-columns: 1fr !important;
         gap: 1.1rem;
@@ -3200,7 +3266,6 @@ input:focus-visible {
         padding-top: 0.3rem;
     }
 
-    /* World Summary Strip */
     .world-summary-strip {
         gap: 1.2rem;
         justify-content: space-around;
@@ -3217,7 +3282,6 @@ input:focus-visible {
         font-size: 0.92rem;
     }
 
-    /* Tables & Process Cards */
     .processes-card {
         padding: 1.2rem !important;
     }
@@ -3241,7 +3305,6 @@ input:focus-visible {
         font-size: 0.85rem;
     }
 
-    /* Login Page Hero Section on Tablets */
     .hero-curved-section {
         padding: 2.8rem 1.5rem;
         border-radius: 0 0 50% 50% / 0 0 38px 38px !important;
@@ -3257,7 +3320,7 @@ input:focus-visible {
 }
 
 @media (max-width: 640px) {
-    /* Multi-Server Overview Cards Stack on Mobile */
+
     .server-row-card {
         display: flex !important;
         flex-direction: column !important;
@@ -3288,7 +3351,6 @@ input:focus-visible {
         grid-column: auto !important;
     }
 
-    /* Compact Navbar for Small Screens */
     .btn-network-return span {
         display: none;
     }
@@ -3305,7 +3367,6 @@ input:focus-visible {
         padding: 0.42rem 0.65rem;
     }
 
-    /* Cinematic Curtain Transition Text */
     .cinematic-curtain-title {
         font-size: 2.4rem;
     }
@@ -3317,7 +3378,7 @@ input:focus-visible {
 }
 
 @media (max-width: 480px) {
-    /* Smartphone Viewports (320px - 480px) */
+
     .dashboard-container {
         padding: 0 0.75rem !important;
         margin: 1rem auto 2rem !important;
@@ -3420,7 +3481,6 @@ input:focus-visible {
         font-size: 0.8rem;
     }
 
-    /* Login Page on Small Smartphones */
     .hero-curved-section {
         padding: 2.2rem 1rem;
         border-radius: 0 0 50% 50% / 0 0 28px 28px !important;
@@ -3463,9 +3523,6 @@ input:focus-visible {
     }
 }
 
-/* ==========================================================================
-   Theme Switcher Button Component
-   ========================================================================== */
 .theme-switcher-btn {
     display: inline-flex;
     align-items: center;
@@ -3505,7 +3562,6 @@ input:focus-visible {
     transform: rotate(25deg);
 }
 
-/* Dashboard variant in the curved dark header */
 .theme-switcher-dash {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -3524,9 +3580,6 @@ input:focus-visible {
     transform: translateY(-1px);
 }
 
-/* ==========================================================================
-   Obsidian Dark Theme Palette & Component Overrides
-   ========================================================================== */
 [data-theme="dark"] {
     --bg-main: #070a11;
     --bg-surface: #0f172a;
@@ -3570,9 +3623,7 @@ input:focus-visible {
 
 [data-theme="dark"] .hero-curved-section {
     background: linear-gradient(180deg, #020408 0%, #0e172a 100%) !important;
-    /* 1) hairline-ободок ровно по кривой "капли" (spread следует border-radius)
-       2) мягкое голубое свечение наружу
-       3) тень для глубины, но на темном фоне она сама по себе не читается, поэтому нужен ободок */
+
     box-shadow:
             0 0 0 1px rgba(56, 189, 248, 0.32),
             0 0 28px 2px rgba(56, 189, 248, 0.16),
@@ -3592,7 +3643,6 @@ input:focus-visible {
     background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0) 70%) !important;
 }
 
-/* Stop-Frame Isolation during Auth Handover & Header Morphing */
 html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curved-header,
 .dashboard-page.dashboard-entering:not(.dashboard-morphing) .dashboard-curved-header {
     height: 100vh !important;
@@ -3612,7 +3662,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     box-shadow: none !important;
 }
 
-/* Dedicated Cinematic Curtain Transition in Dark Mode */
 [data-theme="dark"] .cinematic-curtain-bg {
     background: linear-gradient(180deg, #020408 0%, #0b1322 100%) !important;
     border-bottom: 2px solid rgba(56, 189, 248, 0.45) !important;
@@ -3629,9 +3678,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     letter-spacing: 0.16em !important;
 }
 
-/* Auth Page in Dark Mode */
-/* ВАЖНО: фон враппера должен совпадать с .auth-section, иначе в "углах" за
-   скруглением hero проступает другой цвет и получается вертикальный шов */
 [data-theme="dark"] .canva-wrapper {
     background: #0c121e !important;
 }
@@ -3688,8 +3734,8 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
 [data-theme="dark"] .input-wrapper input:-webkit-autofill:focus,
 [data-theme="dark"] .input-wrapper input:-webkit-autofill:active {
     -webkit-text-fill-color: #f8fafc !important;
-    -webkit-box-shadow: 0 0 0px 1000px #131b2e inset !important;
-    box-shadow: 0 0 0px 1000px #131b2e inset !important;
+    -webkit-box-shadow: 0 0 0 1000px #131b2e inset !important;
+    box-shadow: 0 0 0 1000px #131b2e inset !important;
     transition: background-color 5000s ease-in-out 0s;
 }
 
@@ -3784,7 +3830,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     color: #38bdf8 !important;
 }
 
-/* Floating controls in Dark Mode */
 [data-theme="dark"] .lang-switcher-btn,
 [data-theme="dark"] .theme-switcher-btn {
     background: rgba(19, 27, 46, 0.85) !important;
@@ -3806,7 +3851,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     border-color: #334155 !important;
 }
 
-/* Multi-Server Hub in Dark Mode */
 [data-theme="dark"] .hub-header-card {
     background: #0f172a !important;
     border-color: #1e293b !important;
@@ -3878,7 +3922,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     color: #0b0f19 !important;
 }
 
-/* Metric Flip Cards in Dark Mode */
 [data-theme="dark"] .metric-face {
     background: #0f172a !important;
     border-color: #1e293b !important;
@@ -3939,7 +3982,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     background: #1e293b !important;
 }
 
-/* Flip Back: Chart & Tools in Dark Mode */
 [data-theme="dark"] .metric-face-back {
     background: #0f172a !important;
     border-color: #1e293b !important;
@@ -4006,7 +4048,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     color: #f8fafc !important;
 }
 
-/* World Summary Strip in Dark Mode */
 [data-theme="dark"] .world-summary-strip {
     background: #0f172a !important;
     border-color: #1e293b !important;
@@ -4024,7 +4065,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     background: #1e293b !important;
 }
 
-/* Tables & Process Cards in Dark Mode */
 [data-theme="dark"] .processes-card,
 [data-theme="dark"] .info-card {
     background: #0f172a !important;
@@ -4070,7 +4110,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     color: #94a3b8 !important;
 }
 
-/* Toasts in Dark Mode */
 [data-theme="dark"] .toast {
     background: #0f172a !important;
     border-color: #1e293b !important;
@@ -4086,7 +4125,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     color: #f8fafc !important;
 }
 
-/* Card Icons in Dark Mode */
 [data-theme="dark"] .card-icon.blue {
     background: rgba(59, 130, 246, 0.15) !important;
     color: #60a5fa !important;
@@ -4107,14 +4145,6 @@ html.auth-entering-root .dashboard-page:not(.dashboard-morphing) .dashboard-curv
     color: #94a3b8 !important;
 }
 
-
-/* ==========================================================================
-   Dark Theme Stabilization Patch
-   - keeps all existing variables and class names untouched
-   - normalizes remaining light surfaces/components
-   - fixes transition selectors when data-theme is mounted on <html>
-   ========================================================================== */
-
 html[data-theme="dark"],
 html[data-theme="dark"] body,
 html[data-theme="dark"] #app-root {
@@ -4122,7 +4152,6 @@ html[data-theme="dark"] #app-root {
     color-scheme: dark;
 }
 
-/* Auth / form surfaces */
 html[data-theme="dark"] .btn-group-segmented,
 html[data-theme="dark"] .social-buttons-grid .btn-secondary-action,
 html[data-theme="dark"] .btn-action-tile {
@@ -4170,7 +4199,6 @@ html[data-theme="dark"] .social-divider::after {
     border-bottom-color: #1e293b !important;
 }
 
-/* Host config / auxiliary auth cards */
 html[data-theme="dark"] .host-config-text,
 html[data-theme="dark"] .host-config-text p,
 html[data-theme="dark"] .host-config-text span {
@@ -4202,7 +4230,6 @@ html[data-theme="dark"] .dim-custom {
     color: #cbd5e1 !important;
 }
 
-/* Metric cards: the chart canvas was still literally white. */
 html[data-theme="dark"] .cartesian-canvas-wrapper {
     background: #0b1220 !important;
 }
@@ -4235,7 +4262,6 @@ html[data-theme="dark"] .btn-flip-back:hover {
     color: #ffffff !important;
 }
 
-/* Dashboard summary / badges */
 html[data-theme="dark"] .world-summary-strip {
     background: #0f172a !important;
     border-color: #1e293b !important;
@@ -4269,7 +4295,6 @@ html[data-theme="dark"] .mode-adventure {
     border-color: rgba(217, 119, 6, 0.25) !important;
 }
 
-/* Process / table surfaces */
 html[data-theme="dark"] .processes-card,
 html[data-theme="dark"] .info-card,
 html[data-theme="dark"] .hub-header-card,
@@ -4288,7 +4313,6 @@ html[data-theme="dark"] .styled-table td {
     background: transparent !important;
 }
 
-/* Keep status colors vivid without bringing back pale light-mode pills */
 html[data-theme="dark"] .badge-pill,
 html[data-theme="dark"] .status-sleeping {
     background: #1e293b !important;
@@ -4296,14 +4320,11 @@ html[data-theme="dark"] .status-sleeping {
     border-color: #334155 !important;
 }
 
-/* Floating controls must remain readable over both auth and dashboard */
 html[data-theme="dark"] .lang-switcher-btn,
 html[data-theme="dark"] .theme-switcher-btn {
     color: #f8fafc !important;
 }
 
-/* Correct selectors for the root element itself.
-   [data-theme="dark"] html can never match when the attribute lives on <html>. */
 html[data-theme="dark"].auth-entering-root,
 html[data-theme="dark"].auth-entering-root body,
 html[data-theme="dark"].auth-entering-root #app-root,

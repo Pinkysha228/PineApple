@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PineApple — Minecraft Server Monitor</title>
-    <!-- Modern Typography & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/style.css?v=4.2">
+    <link rel="stylesheet" href="/static/css/style.css?v=4.3">
     <script>
         (function() {
             var theme = localStorage.getItem('pineapple_theme') || 
@@ -22,24 +21,31 @@
 </head>
 <body>
 <div id="app-root">
-    <!-- Language & Theme Switchers in Top-Right Corner -->
     <div class="lang-switcher-container">
         <button type="button" class="theme-switcher-btn" id="themeSwitcherAuth" onclick="toggleTheme()" aria-label="Toggle Theme" title="Toggle Light/Dark Theme">
             <i class="fa-solid fa-moon theme-icon"></i>
         </button>
-        <button type="button" class="lang-switcher-btn" id="langSwitcherBtn" onclick="toggleLanguage()" aria-label="Switch Language" title="Switch Language">
-            <i class="fa-solid fa-globe lang-globe-icon"></i>
-            <span class="lang-code-text" id="langCodeLabel">EN</span>
-        </button>
+        <div class="lang-dropdown-wrapper" id="langDropdownWrapperAuth">
+            <button type="button" class="lang-switcher-btn" id="langDropdownBtnAuth" onclick="toggleLanguageDropdown(event, 'Auth')" aria-haspopup="true" aria-expanded="false" title="Select Language">
+                <span class="lang-flag-badge" id="currentLangFlagAuth"></span>
+                <span class="lang-code-text" id="currentLangCodeAuth">EN</span>
+                <i class="fa-solid fa-chevron-down lang-chevron-icon"></i>
+            </button>
+            <div class="lang-dropdown-menu" id="langDropdownMenuAuth" role="menu" aria-label="Language selection">
+                <div class="lang-dropdown-header">
+                    <span data-i18n="lang_select_title">Select Language</span>
+                </div>
+                <div class="lang-dropdown-list" id="langDropdownListAuth" role="none">
+                    </div>
+            </div>
+        </div>
     </div>
 
     <main class="canva-wrapper" id="canvaWrapper">
-        <!-- Centered Brand Stage: Strictly centered in the viewport for cinematic transition -->
         <div class="auth-center-brand-stage" id="authCenterBrandStage" aria-hidden="true">
             <span class="auth-center-brand-text">PineApple</span>
         </div>
 
-        <!-- Left Hero Section with Curved Dark Element -->
         <section class="hero-curved-section" id="heroSection">
             <div class="curved-backdrop"></div>
             <div class="hero-content" id="heroContent">
@@ -63,16 +69,13 @@
             </div>
         </section>
 
-        <!-- Right Interactive Authentication Area -->
         <section class="auth-section" id="authSection">
             <div class="auth-container">
-                <!-- Header -->
                 <div class="auth-header">
                     <span class="auth-subtitle" data-i18n="auth_subtitle">Paper Console Access</span>
                     <h2 class="auth-main-title" data-i18n="auth_title">Server Authentication</h2>
                 </div>
 
-                <!-- Login Form Card -->
                 <div class="forms-wrapper" id="formsWrapper">
                     <div class="auth-card-pane active" id="loginPane">
                         <form action="/login" method="POST" class="auth-form" id="loginForm" onsubmit="handleLoginSubmit(event)">
@@ -98,7 +101,6 @@
                                 </div>
                             </div>
 
-                            <!-- Remember Me Checkbox -->
                             <div class="remember-me-row">
                                 <label class="custom-checkbox-container" for="remember_me">
                                     <input type="checkbox" id="remember_me" name="remember_me" checked>
@@ -107,7 +109,6 @@
                                 </label>
                             </div>
 
-                            <!-- Primary Action Button -->
                             <div class="form-action-group">
                                 <button type="submit" class="btn-primary-action btn-glow ripple-effect" id="loginSubmitBtn">
                                     <span class="btn-text" data-i18n="btn_submit_login">Access Monitor</span>
@@ -118,7 +119,6 @@
                     </div>
                 </div>
 
-                <!-- Host Config Notice -->
                 <div class="host-config-card">
                     <div class="host-config-icon"><i class="fa-solid fa-terminal"></i></div>
                     <div class="host-config-text">
@@ -132,6 +132,6 @@
 </div>
 
 <div id="toast-container" class="toast-container"></div>
-<script src="/static/js/main.js?v=4.2"></script>
+<script src="/static/js/main.js?v=4.3"></script>
 </body>
 </html>

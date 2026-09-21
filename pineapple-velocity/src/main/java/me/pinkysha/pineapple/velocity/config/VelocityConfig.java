@@ -22,6 +22,7 @@ public class VelocityConfig {
     private String username = "admin";
     private String password = "admin";
     private int rememberMeDays = 30;
+    private String defaultLanguage = "en";
 
     public VelocityConfig(Path dataDirectory, Logger logger) {
         this.configFile = dataDirectory.resolve("config.properties");
@@ -47,6 +48,7 @@ public class VelocityConfig {
                 this.username = props.getProperty("auth.username", "admin").trim();
                 this.password = props.getProperty("auth.password", "admin").trim();
                 this.rememberMeDays = parseInt(props.getProperty("auth.remember_me_days", "30"), 30);
+                this.defaultLanguage = props.getProperty("server.default_language", "en").trim().toLowerCase();
             } else {
                 saveDefault();
             }
@@ -64,6 +66,7 @@ public class VelocityConfig {
         props.setProperty("auth.username", username);
         props.setProperty("auth.password", password);
         props.setProperty("auth.remember_me_days", String.valueOf(rememberMeDays));
+        props.setProperty("server.default_language", defaultLanguage);
 
         try (BufferedWriter writer = Files.newBufferedWriter(configFile, StandardCharsets.UTF_8)) {
             props.store(writer, "PineApple Velocity Proxy Monitor Configuration");
@@ -106,5 +109,9 @@ public class VelocityConfig {
 
     public int getRememberMeDays() {
         return rememberMeDays;
+    }
+
+    public String getDefaultLanguage() {
+        return defaultLanguage;
     }
 }

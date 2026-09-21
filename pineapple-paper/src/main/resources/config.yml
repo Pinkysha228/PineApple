@@ -13,6 +13,9 @@ channel: "pineapple:telemetry"
 # Set to false when running behind Velocity proxy to eliminate web overhead.
 standalone-webserver: false
 
+# Default web UI language ("en", "es", "fr", "de", "zh", "ja", "pt", "it", "pl", "ko", "tr", "ar")
+default_language: "en"
+
 proxy:
   enable_http_push: true
   url: "http://127.0.0.1:8080/api/telemetry/push"

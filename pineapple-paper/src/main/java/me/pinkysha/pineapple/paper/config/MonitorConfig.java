@@ -15,6 +15,7 @@ public interface MonitorConfig {
     int getMaxPlayersDisplay();
     long getCacheTtlMs();
     default boolean isShowAvatars() { return true; }
+    default String getDefaultLanguage() { return "en"; }
 
     void logInfo(String message);
     void logWarning(String message);

@@ -1,31 +1,3 @@
-/**
- * @typedef {Object} ServerHistoryItem
- * @property {number} t
- * @property {number} tps
- * @property {number} mspt
- * @property {number} ram
- * @property {number} ram_max
- * @property {number} ram_pct
- * @property {number} cpu
- */
-
-/**
- * @typedef {Object} PineAppleStats
- * @property {number} [timestamp]
- * @property {{current?: number, mspt?: number, history?: number[]}} [tps]
- * @property {{heap_used_mb?: number, heap_max_mb?: number, heap_percent?: number, heap_committed_mb?: number, system_total_mb?: number, system_available_mb?: number, system_free_mb?: number}} [memory]
- * @property {{process_percent?: number, system_percent?: number, available_processors?: number}} [cpu]
- * @property {{online?: number, max?: number, list?: Array<{name: string, world?: string, gamemode?: string, ping?: number}>}} [players]
- * @property {{total_chunks?: number, total_entities?: number, worlds?: Array<{name: string, environment?: string, loaded_chunks?: number, entities?: number}>}} [worlds]
- * @property {{uptime?: string}} [system]
- * @property {{version?: string, java_version?: string}} [server]
- * @property {{show_avatars?: boolean}} [config]
- */
-
-/**
- * PineApple Web Monitor for Paper 1.21.4
- * Ultra-lightweight Real-Time Minecraft Telemetry
- */
 
 const TRANSLATIONS = {
     en: {
@@ -230,7 +202,6 @@ function applyLanguage(lang) {
         }
     });
 
-    // Re-render active charts with updated localized labels
     renderActiveCharts();
 }
 
@@ -272,10 +243,6 @@ function showToast(type, message, duration = 3800) {
     }, duration);
 }
 
-/**
- * Unified Metric State & Threshold Resolver (Requirement 7)
- * Returns 'good' | 'warn' | 'danger'
- */
 function getMetricState(metric, value) {
     if (metric === 'tps') {
         if (value >= 19.0) return 'good';
@@ -306,9 +273,6 @@ function getStateTheme(state, defaultAccent = '#3b82f6') {
     return { color: '#3b82f6', textClass: 'text-blue', fillClass: 'fill-blue', grad: 'rgba(59, 130, 246, 0.12)' };
 }
 
-/**
- * Cinematic Dashboard Stop-Frame Transition
- */
 function runDashboardEntranceAnimation(dashboardPage, successMessage) {
     if (!dashboardPage) return;
 
@@ -378,7 +342,6 @@ async function triggerCinematicTransition(redirectUrl, successMessage) {
         canvaWrapper.classList.add('auth-transitioning');
     }
 
-    // Allow the sweep animation (1.1s) to finish cleanly, then navigate natively to dashboard
     setTimeout(() => {
         window.location.href = targetUrl;
     }, 1050);
@@ -474,11 +437,7 @@ window.addEventListener('popstate', () => {
     window.location.reload();
 });
 
-
-/* ==========================================================================
-   Multi-Server Network State & Transitions
-   ========================================================================== */
-let currentView = "hub"; // "hub" | "server"
+let currentView = "hub";
 let activeServerId = null;
 let activeServerName = null;
 let isCurtainTransitioning = false;
@@ -754,7 +713,6 @@ function runCurtainTransition(destinationView, destinationTitle, destinationSubt
 
     const page = document.getElementById("dashboardPage") || document.querySelector(".dashboard-page");
 
-    // Step 1: Smoothly drop cinematic curtain
     curtain.classList.remove("curtain-retracting");
     curtain.classList.add("curtain-dropping");
     if (page) {
@@ -762,7 +720,6 @@ function runCurtainTransition(destinationView, destinationTitle, destinationSubt
         page.classList.add("curtain-dropping");
     }
 
-    // Step 2: Swap content at full cover (~800ms for slow, stately transition)
     setTimeout(() => {
         if (onSwapCallback) {
             onSwapCallback();
@@ -775,7 +732,6 @@ function runCurtainTransition(destinationView, destinationTitle, destinationSubt
         }
         window.scrollTo(0, 0);
 
-        // Step 3: Retract curtain upward smoothly (~850ms)
         curtain.classList.remove("curtain-dropping");
         curtain.classList.add("curtain-retracting");
         if (page) {
@@ -891,7 +847,6 @@ async function fetchLiveStats(isManual = false) {
         const data = await response.json();
         updateDashboardUI(data);
 
-        // Append to local metricHistory for charts
         const now = Date.now();
         const tpsVal = data.tps ? (data.tps.current !== undefined ? data.tps.current : 20.0) : 20.0;
         const ramVal = data.memory ? (data.memory.used_mb !== undefined ? data.memory.used_mb : (data.memory.heap_used_mb || 0)) : 0;
@@ -943,7 +898,6 @@ function updateDashboardUI(data) {
         lastUpdated.textContent = `Synced: ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
     }
 
-    // 1. TPS
     if (data.tps) {
         const val = data.tps.current !== undefined ? data.tps.current : 20.0;
         const pct = Math.min(100, Math.max(0, (val / 20.0) * 100));
@@ -968,7 +922,6 @@ function updateDashboardUI(data) {
         if (tps15m) tps15m.textContent = (data.tps["15m"] !== undefined ? data.tps["15m"] : (data.tps.history ? data.tps.history[2] : val)).toFixed(1);
     }
 
-    // 2. RAM
     if (data.memory) {
         const ramUsed = data.memory.used_mb !== undefined ? data.memory.used_mb : (data.memory.heap_used_mb || 0);
         const ramMax = data.memory.max_mb !== undefined ? data.memory.max_mb : (data.memory.heap_max_mb || 1024);
@@ -998,7 +951,6 @@ function updateDashboardUI(data) {
         }
     }
 
-    // 3. CPU
     if (data.cpu) {
         const procPct = data.cpu.process_percentage !== undefined ? data.cpu.process_percentage : (data.cpu.process_percent || 0);
         const sysPct = data.cpu.system_percentage !== undefined ? data.cpu.system_percentage : (data.cpu.system_percent || 0);
@@ -1022,7 +974,6 @@ function updateDashboardUI(data) {
         if (valCores) valCores.textContent = `${cores} Cores`;
     }
 
-    // 4. Players Table
     const pTableBody = document.getElementById("playersTableBody");
     if (pTableBody && data.players) {
         const list = data.players.list || [];
@@ -1043,7 +994,6 @@ function updateDashboardUI(data) {
         }
     }
 
-    // 5. Worlds Table & Summary
     const valTotalChunks = document.getElementById("valTotalChunks");
     const valTotalEntities = document.getElementById("valTotalEntities");
     const wTableBody = document.getElementById("worldsTableBody");
@@ -1108,7 +1058,6 @@ async function syncHistoryFromServer() {
                 };
             });
 
-            // Re-render any flipped cards immediately
             ["tps", "ram", "cpu"].forEach(metric => {
                 const card = document.getElementById(`card${metric.charAt(0).toUpperCase() + metric.slice(1)}`);
                 if (card && card.classList.contains("flipped")) {
@@ -1286,7 +1235,6 @@ function renderMetricChart(metric) {
 }
 
 function initFlippableCards() {
-    // Front face click & keydown (Enter / Space) for accessibility
     document.querySelectorAll('.metric-flip-card').forEach(card => {
         const front = card.querySelector('.metric-face-front');
         const back = card.querySelector('.metric-face-back');
@@ -1311,7 +1259,6 @@ function initFlippableCards() {
 
             front.addEventListener('click', toggleFlip);
 
-            // Keyboard accessibility: Enter and Space
             front.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -1320,12 +1267,10 @@ function initFlippableCards() {
             });
         }
 
-        // Click anywhere on the back face to flip back (except time pill controls)
         if (back && back.getAttribute('data-flip-back-bound') !== 'true') {
             back.setAttribute('data-flip-back-bound', 'true');
 
             back.addEventListener('click', (e) => {
-                // Ignore if clicked on time pill or time pill container
                 if (e.target.closest('.btn-time-pill') || e.target.closest('.cartesian-time-selector')) {
                     return;
                 }
@@ -1334,7 +1279,6 @@ function initFlippableCards() {
             });
         }
 
-        // Crisp redraw upon transitionend
         if (inner && inner.getAttribute('data-trans-bound') !== 'true') {
             inner.setAttribute('data-trans-bound', 'true');
             inner.addEventListener('transitionend', (e) => {
@@ -1345,7 +1289,6 @@ function initFlippableCards() {
         }
     });
 
-    // Flip back buttons (explicit button click)
     document.querySelectorAll('.btn-flip-back').forEach(btn => {
         if (btn.getAttribute('data-flip-bound') === 'true') return;
         btn.setAttribute('data-flip-bound', 'true');
@@ -1361,7 +1304,6 @@ function initFlippableCards() {
         });
     });
 
-    // Time pill buttons (1m, 30m, 1h)
     document.querySelectorAll('.btn-time-pill').forEach(btn => {
         if (btn.getAttribute('data-flip-bound') === 'true') return;
         btn.setAttribute('data-flip-bound', 'true');
@@ -1383,12 +1325,10 @@ function initFlippableCards() {
         });
     });
 
-    // Prevent clicks on time selector container from bubbling to back face flip
     document.querySelectorAll('.cartesian-time-selector').forEach(sel => {
         sel.addEventListener('click', (e) => e.stopPropagation());
     });
 
-    // Responsive redraw
     window.addEventListener('resize', () => {
         ['tps', 'ram', 'cpu'].forEach(metric => {
             const card = document.getElementById(`card${metric.charAt(0).toUpperCase() + metric.slice(1)}`);
@@ -1428,7 +1368,6 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(getStoredTheme());
     applyLanguage(getLanguage());
 
-    // Restore saved Remember-Me credentials
     const savedUser = localStorage.getItem('pineapple_saved_user');
     const rememberPref = localStorage.getItem('pineapple_remember_me');
     const userInput = document.getElementById('login_user');
@@ -1475,9 +1414,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-/* ==========================================================================
-   Theme Management (Light / Dark Theme)
-   ========================================================================== */
 function getStoredTheme() {
     const saved = localStorage.getItem('pineapple_theme');
     if (saved === 'dark' || saved === 'light') return saved;
@@ -1497,12 +1433,10 @@ function applyTheme(theme) {
     }
     localStorage.setItem('pineapple_theme', theme);
 
-    // Update icons
     document.querySelectorAll('.theme-icon').forEach(icon => {
         icon.className = theme === 'dark' ? 'fa-solid fa-sun theme-icon' : 'fa-solid fa-moon theme-icon';
     });
 
-    // Re-render any flipped chart to refresh grid and background contrast
     ['tps', 'ram', 'cpu'].forEach(metric => {
         const cap = metric.charAt(0).toUpperCase() + metric.slice(1);
         const card = document.getElementById('card' + cap);

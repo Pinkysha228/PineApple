@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PineApple — Minecraft Network Monitor</title>
-    <!-- Modern Typography & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/style.css?v=4.2">
+    <link rel="stylesheet" href="/static/css/style.css?v=4.3">
     <script>
         if (sessionStorage.getItem("pineapple_auth_transition") === "true") {
             document.documentElement.classList.add("auth-transition-active", "auth-entering-root");
@@ -28,12 +27,10 @@
 <body>
 <div id="app-root">
 <div class="dashboard-page" id="dashboardPage">
-    <!-- Center Brand Stage for Cinematic Entrance Transition -->
     <div class="dash-center-brand-stage" id="dashCenterBrandStage" aria-hidden="true">
         <span class="auth-center-brand-text" id="dashCenterBrandText">PineApple</span>
     </div>
 
-    <!-- Curved Dark Top Header -->
     <header class="dashboard-curved-header" id="dashCurvedHeader">
         <div class="curved-header-blob"></div>
 
@@ -51,22 +48,29 @@
                     </span>
                 </div>
                 <div class="nav-user-menu">
-                    <!-- Live Pulse Indicator -->
                     <div class="live-status-pill" id="liveStatusPill" title="Real-time telemetry stream active">
                         <span class="pulse-dot"></span>
                         <span class="live-status-text" data-i18n="status_live">LIVE</span>
                     </div>
 
-                    <!-- Theme Switcher in Dashboard Header -->
                     <button type="button" class="theme-switcher-btn theme-switcher-dash" id="themeSwitcherDash" onclick="toggleTheme()" aria-label="Toggle Theme" title="Toggle Light/Dark Theme">
                         <i class="fa-solid fa-moon theme-icon"></i>
                     </button>
 
-                    <!-- Language Switcher in Dashboard Header -->
-                    <button type="button" class="lang-switcher-btn lang-switcher-dash" onclick="toggleLanguage()" aria-label="Switch Language" title="Switch Language">
-                        <i class="fa-solid fa-globe lang-globe-icon"></i>
-                        <span class="lang-code-text">EN</span>
-                    </button>
+                    <div class="lang-dropdown-wrapper" id="langDropdownWrapperDash">
+                        <button type="button" class="lang-switcher-btn lang-switcher-dash" id="langDropdownBtnDash" onclick="toggleLanguageDropdown(event, 'Dash')" aria-haspopup="true" aria-expanded="false" title="Select Language">
+                            <span class="lang-flag-badge" id="currentLangFlagDash"></span>
+                            <span class="lang-code-text" id="currentLangCodeDash">EN</span>
+                            <i class="fa-solid fa-chevron-down lang-chevron-icon"></i>
+                        </button>
+                        <div class="lang-dropdown-menu lang-dropdown-menu-dash" id="langDropdownMenuDash" role="menu" aria-label="Language selection">
+                            <div class="lang-dropdown-header">
+                                <span data-i18n="lang_select_title">Select Language</span>
+                            </div>
+                            <div class="lang-dropdown-list" id="langDropdownListDash" role="none">
+                                </div>
+                        </div>
+                    </div>
 
                     <span class="nav-user-name" title="Operator Session">
                         <i class="fa-solid fa-shield-halved"></i>
@@ -80,7 +84,6 @@
                 </div>
             </nav>
 
-            <!-- Hero Banner 1: Network Hub View -->
             <div class="dash-hero-banner" id="hubHeroBanner">
                 <div class="dash-hero-text">
                     <h2><span data-i18n="hub_banner_title">Minecraft Network:</span> <span class="highlight" id="hubProxyTitle">Velocity Proxy</span></h2>
@@ -101,7 +104,6 @@
                 </div>
             </div>
 
-            <!-- Hero Banner 2: Individual Server Dashboard View -->
             <div class="dash-hero-banner" id="serverHeroBanner" style="display: none;">
                 <div class="dash-hero-text">
                     <h2><span data-i18n="dash_server_title">Minecraft Server:</span> <span class="highlight" id="valServerVersion">Paper 1.21.4</span></h2>
@@ -125,11 +127,7 @@
         </div>
     </header>
 
-    <!-- Main Dashboard Container -->
     <main class="dashboard-container">
-        <!-- ==================================================================
-             VIEW 1: Network Hub (Multi-Server Vertical List)
-             ================================================================== -->
         <section class="network-hub-view" id="networkHubView">
             <div class="hub-header-card">
                 <div class="hub-header-identity">
@@ -146,8 +144,7 @@
                 </div>
             </div>
 
-            <!-- Vertical list of servers: (server name) (version) (TPS) (RAM) (CPU) -->
-            <div class="network-servers-list" id="networkServersList">
+            <div classnetwork-servers-list" id="networkServersList">
                 <div class="hub-loading-placeholder text-center text-muted py-5">
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-3 text-accent"></i>
                     <p>Discovering backend servers...</p>
@@ -155,16 +152,10 @@
             </div>
         </section>
 
-        <!-- ==================================================================
-             VIEW 2: Server Telemetry Dashboard (3D Flippable Cards & Details)
-             ================================================================== -->
         <section class="server-dashboard-view" id="serverDashboardView" style="display: none;">
-            <!-- Resource Telemetry Grid: 3D Flippable Metric Cards -->
             <div class="dash-grid">
-                <!-- 1. TPS & Tick Health Card (3D Flippable) -->
                 <div class="metric-flip-card" id="cardTps" data-metric="tps" role="region" aria-roledescription="metric card">
                     <div class="metric-flip-inner">
-                        <!-- Front Face -->
                         <div class="metric-face metric-face-front" role="button" tabindex="0" aria-pressed="false" aria-label="Server TPS - click for chart" title="Click for graph">
                             <div class="metric-card-header">
                                 <div class="metric-header-left">
@@ -196,7 +187,6 @@
                             </div>
                         </div>
 
-                        <!-- Back Face: Telemetry History Graph (1m, 30m, 1h) -->
                         <div class="metric-face metric-face-back" title="Click anywhere to return">
                             <div class="cartesian-back-toolbar">
                                 <div class="cartesian-title-wrap">
@@ -234,10 +224,8 @@
                     </div>
                 </div>
 
-                <!-- 2. JVM Heap Memory Card (3D Flippable) -->
                 <div class="metric-flip-card" id="cardRam" data-metric="ram" role="region" aria-roledescription="metric card">
                     <div class="metric-flip-inner">
-                        <!-- Front Face -->
                         <div class="metric-face metric-face-front" role="button" tabindex="0" aria-pressed="false" aria-label="JVM Heap Memory - click for chart" title="Click for graph">
                             <div class="metric-card-header">
                                 <div class="metric-header-left">
@@ -269,7 +257,6 @@
                             </div>
                         </div>
 
-                        <!-- Back Face: Telemetry History Graph (1m, 30m, 1h) -->
                         <div class="metric-face metric-face-back" title="Click anywhere to return">
                             <div class="cartesian-back-toolbar">
                                 <div class="cartesian-title-wrap">
@@ -307,10 +294,8 @@
                     </div>
                 </div>
 
-                <!-- 3. Host CPU Card (3D Flippable) -->
                 <div class="metric-flip-card" id="cardCpu" data-metric="cpu" role="region" aria-roledescription="metric card">
                     <div class="metric-flip-inner">
-                        <!-- Front Face -->
                         <div class="metric-face metric-face-front" role="button" tabindex="0" aria-pressed="false" aria-label="CPU Load - click for chart" title="Click for graph">
                             <div class="metric-card-header">
                                 <div class="metric-header-left">
@@ -342,7 +327,6 @@
                             </div>
                         </div>
 
-                        <!-- Back Face: Telemetry History Graph (1m, 30m, 1h) -->
                         <div class="metric-face metric-face-back" title="Click anywhere to return">
                             <div class="cartesian-back-toolbar">
                                 <div class="cartesian-title-wrap">
@@ -381,7 +365,6 @@
                 </div>
             </div>
 
-            <!-- Clean World & Entities Telemetry Strip -->
             <div class="world-summary-strip">
                 <div class="summary-strip-item">
                     <i class="fa-solid fa-cubes-stacked text-accent"></i>
@@ -396,7 +379,6 @@
                 </div>
             </div>
 
-            <!-- Online Players Table Card -->
             <div class="info-card processes-card">
                 <div class="processes-card-header">
                     <div class="proc-header-left">
@@ -431,7 +413,6 @@
                 </div>
             </div>
 
-            <!-- Worlds & Chunks Table Card -->
             <div class="info-card processes-card mt-3">
                 <div class="processes-card-header">
                     <div class="proc-header-left">
@@ -454,16 +435,14 @@
                             </tr>
                         </thead>
                         <tbody id="worldsTableBody">
-                            <!-- Populated dynamically via JS -->
-                        </tbody>
+                            </tbody>
                     </table>
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- Dedicated Cinematic Curtain Overlay for View Transitions -->
-<div class="cinematic-curtain" id="cinematicCurtain" aria-hidden="true">
+    <div class="cinematic-curtain" id="cinematicCurtain" aria-hidden="true">
     <div class="cinematic-curtain-bg"></div>
     <div class="cinematic-curtain-brand">
         <span class="cinematic-curtain-title" id="cinematicCurtainTitle">PineApple</span>
@@ -475,7 +454,6 @@
 
 <div id="toast-container" class="toast-container"></div>
 
-
-<script src="/static/js/main.js?v=4.2"></script>
+<script src="/static/js/main.js?v=4.3"></script>
 </body>
 </html>

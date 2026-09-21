@@ -1,5 +1,7 @@
 package me.pinkysha.pineapple.paper.server;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -12,6 +14,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -20,8 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -46,6 +48,27 @@ public class WebServer {
 
     private static final String COOKIE_NAME = "pmonitor_session";
 
+    private static final String[] DEFAULT_LANGUAGES = {
+        "en", "ru", "ar", "zh", "fr", "es"
+    };
+
+    private static final Map<String, String[]> LANG_META = new LinkedHashMap<>();
+    static {
+        LANG_META.put("en", new String[]{"English", "English", "gb"});
+        LANG_META.put("ru", new String[]{"Russian", "Русский", "ru"});
+        LANG_META.put("ar", new String[]{"Arabic", "العربية", "sa"});
+        LANG_META.put("zh", new String[]{"Chinese", "简体中文", "cn"});
+        LANG_META.put("fr", new String[]{"French", "Français", "fr"});
+        LANG_META.put("es", new String[]{"Spanish", "Español", "es"});
+        LANG_META.put("de", new String[]{"German", "Deutsch", "de"});
+        LANG_META.put("ja", new String[]{"Japanese", "日本語", "jp"});
+        LANG_META.put("pt", new String[]{"Portuguese", "Português", "pt"});
+        LANG_META.put("it", new String[]{"Italian", "Italiano", "it"});
+        LANG_META.put("pl", new String[]{"Polish", "Polski", "pl"});
+        LANG_META.put("ko", new String[]{"Korean", "한국어", "kr"});
+        LANG_META.put("tr", new String[]{"Turkish", "Türkçe", "tr"});
+    }
+
     public WebServer(MonitorConfig config, String host, int port, StatsCollector statsCollector, SessionManager sessionManager) {
         this(config, host, port, statsCollector, sessionManager, null);
     }
@@ -58,6 +81,7 @@ public class WebServer {
         this.sessionManager = sessionManager;
         this.dataDirectory = dataDirectory;
         extractDefaultWebAssets();
+        extractDefaultLangAssets();
     }
 
     private void extractDefaultWebAssets() {
@@ -89,12 +113,38 @@ public class WebServer {
         }
     }
 
+    private void extractDefaultLangAssets() {
+        if (dataDirectory == null) return;
+        Path langDir = dataDirectory.resolve("lang");
+        for (String code : DEFAULT_LANGUAGES) {
+            String fileName = code + ".json";
+            Path target = langDir.resolve(fileName);
+            if (!Files.exists(target)) {
+                try {
+                    if (target.getParent() != null) {
+                        Files.createDirectories(target.getParent());
+                    }
+                    try (InputStream in = getClass().getResourceAsStream("/lang/" + fileName)) {
+                        if (in != null) {
+                            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+                            config.logInfo("Extracted default lang asset to: " + target);
+                        }
+                    }
+                } catch (Exception e) {
+                    config.logWarning("Could not extract default lang asset " + fileName + ": " + e.getMessage());
+                }
+            }
+        }
+    }
+
     private synchronized CachedResource loadResource(String path, String contentType) {
-        // 1. Check external file in dataDirectory/web/
         if (dataDirectory != null) {
             String rel = path.startsWith("/web/") ? path.substring("/web/".length())
                     : (path.startsWith("/") ? path.substring(1) : path);
-            Path externalFile = dataDirectory.resolve("web").resolve(rel);
+            Path externalFile = dataDirectory.resolve(rel);
+            if (!Files.isRegularFile(externalFile) && !rel.startsWith("web/")) {
+                externalFile = dataDirectory.resolve("web").resolve(rel);
+            }
             if (Files.isRegularFile(externalFile)) {
                 try {
                     long fileLastMod = Files.getLastModifiedTime(externalFile).toMillis();
@@ -113,7 +163,6 @@ public class WebServer {
             }
         }
 
-        // 2. Fallback to classpath resource inside JAR
         CachedResource cached = resourceCache.get(path);
         if (cached != null && cached.lastModified() == 0L) {
             return cached;
@@ -193,6 +242,8 @@ public class WebServer {
         server.createContext("/api/stats", new StatsApiHandler());
         server.createContext("/api/history", new HistoryApiHandler());
         server.createContext("/api/servers", new ServersApiHandler());
+        server.createContext("/api/lang", new ApiLangHandler());
+        server.createContext("/lang/", new StaticLangHandler());
         server.createContext("/static/", new StaticHandler());
         server.createContext("/css/", new StaticHandler());
         server.createContext("/js/", new StaticHandler());
@@ -249,6 +300,111 @@ public class WebServer {
     private void sendRedirect(HttpExchange exchange, String location) throws IOException {
         exchange.getResponseHeaders().set("Location", location);
         exchange.sendResponseHeaders(302, -1);
+    }
+
+    private void serveLangPack(HttpExchange exchange, String code) throws IOException {
+        String fileName = code + ".json";
+        if (dataDirectory != null) {
+            Path externalLang = dataDirectory.resolve("lang").resolve(fileName);
+            if (Files.isRegularFile(externalLang)) {
+                byte[] data = Files.readAllBytes(externalLang);
+                sendResponse(exchange, 200, "application/json; charset=utf-8", data);
+                return;
+            }
+        }
+
+        try (InputStream in = getClass().getResourceAsStream("/lang/" + fileName)) {
+            if (in != null) {
+                byte[] data = in.readAllBytes();
+                sendResponse(exchange, 200, "application/json; charset=utf-8", data);
+                return;
+            }
+        }
+
+        String err = "{\"error\":\"Language pack not found: " + code + "\"}";
+        sendResponse(exchange, 404, "application/json; charset=utf-8", err.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private class ApiLangHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            String query = exchange.getRequestURI().getQuery();
+            String code = null;
+            if (query != null && query.contains("code=")) {
+                for (String part : query.split("&")) {
+                    String[] kv = part.split("=", 2);
+                    if ("code".equalsIgnoreCase(kv[0]) && kv.length > 1) {
+                        code = URLDecoder.decode(kv[1], StandardCharsets.UTF_8).trim().toLowerCase();
+                        break;
+                    }
+                }
+            }
+
+            if (code != null && !code.isBlank()) {
+                serveLangPack(exchange, code);
+                return;
+            }
+
+            JsonObject root = new JsonObject();
+            root.addProperty("default", config != null ? config.getDefaultLanguage() : "en");
+
+            Set<String> discoveredCodes = new LinkedHashSet<>();
+            Collections.addAll(discoveredCodes, DEFAULT_LANGUAGES);
+
+            if (dataDirectory != null) {
+                Path langDir = dataDirectory.resolve("lang");
+                if (Files.isDirectory(langDir)) {
+                    try (DirectoryStream<Path> stream = Files.newDirectoryStream(langDir, "*.json")) {
+                        for (Path p : stream) {
+                            String fName = p.getFileName().toString();
+                            String c = fName.substring(0, fName.length() - 5).toLowerCase();
+                            discoveredCodes.add(c);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            JsonArray arr = new JsonArray();
+            for (String c : discoveredCodes) {
+                JsonObject item = new JsonObject();
+                item.addProperty("code", c);
+                String[] meta = LANG_META.get(c);
+                if (meta != null) {
+                    item.addProperty("name", meta[0]);
+                    item.addProperty("native", meta[1]);
+                    item.addProperty("flag", meta[2]);
+                    if ("ar".equals(c)) {
+                        item.addProperty("rtl", true);
+                    }
+                } else {
+                    item.addProperty("name", c.toUpperCase());
+                    item.addProperty("native", c.toUpperCase());
+                    item.addProperty("flag", c);
+                }
+                arr.add(item);
+            }
+            root.add("languages", arr);
+
+            byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
+            sendResponse(exchange, 200, "application/json; charset=utf-8", bytes);
+        }
+    }
+
+    private class StaticLangHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            String path = exchange.getRequestURI().getPath();
+            if (path.startsWith("/lang/")) {
+                String file = path.substring("/lang/".length());
+                if (file.endsWith(".json")) {
+                    String code = file.substring(0, file.length() - 5);
+                    serveLangPack(exchange, code.toLowerCase());
+                    return;
+                }
+            }
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+        }
     }
 
     private class RootHandler implements HttpHandler {
@@ -405,6 +561,7 @@ public class WebServer {
             else if (path.endsWith(".woff")) contentType = "font/woff";
             else if (path.endsWith(".ttf")) contentType = "font/ttf";
             else if (path.endsWith(".ico")) contentType = "image/x-icon";
+            else if (path.endsWith(".json")) contentType = "application/json; charset=utf-8";
 
             serveStatic(exchange, "/web" + (path.startsWith("/") ? path : "/" + path), contentType);
         }

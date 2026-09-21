@@ -41,3 +41,7 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Gemini
+GEMINI.md
+gemini.md

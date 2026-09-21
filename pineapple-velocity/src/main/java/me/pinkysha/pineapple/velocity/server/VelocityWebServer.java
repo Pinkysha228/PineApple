@@ -1,5 +1,6 @@
 package me.pinkysha.pineapple.velocity.server;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
@@ -10,6 +11,7 @@ import me.pinkysha.pineapple.velocity.telemetry.ServerTelemetryRegistry;
 import org.slf4j.Logger;
 
 import java.io.*;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -21,8 +23,7 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Executors;
 
 public class VelocityWebServer {
@@ -38,6 +39,10 @@ public class VelocityWebServer {
 
     private record CachedResource(byte[] data, String contentType, String etag, long lastModified) {}
 
+    private static final String[] DEFAULT_LANGUAGES = {
+        "en", "ru", "ar", "zh", "fr", "es"
+    };
+
     public VelocityWebServer(VelocityConfig config, ServerTelemetryRegistry registry, SessionManager sessionManager, Logger logger) {
         this(config, registry, sessionManager, null, logger);
     }
@@ -49,6 +54,7 @@ public class VelocityWebServer {
         this.dataDirectory = dataDirectory;
         this.logger = logger;
         extractDefaultWebAssets();
+        extractDefaultLangAssets();
     }
 
     private void extractDefaultWebAssets() {
@@ -80,6 +86,30 @@ public class VelocityWebServer {
         }
     }
 
+    private void extractDefaultLangAssets() {
+        if (dataDirectory == null) return;
+        Path langDir = dataDirectory.resolve("lang");
+        for (String code : DEFAULT_LANGUAGES) {
+            String fileName = code + ".json";
+            Path target = langDir.resolve(fileName);
+            if (!Files.exists(target)) {
+                try {
+                    if (target.getParent() != null) {
+                        Files.createDirectories(target.getParent());
+                    }
+                    try (InputStream in = getClass().getResourceAsStream("/lang/" + fileName)) {
+                        if (in != null) {
+                            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+                            logger.info("Extracted default lang asset to: {}", target);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("Could not extract default lang asset {}: {}", fileName, e.getMessage());
+                }
+            }
+        }
+    }
+
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress(config.host(), config.port()), 0);
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
@@ -92,6 +122,8 @@ public class VelocityWebServer {
         server.createContext("/api/stats", new ApiStatsHandler());
         server.createContext("/api/history", new ApiHistoryHandler());
         server.createContext("/api/telemetry/push", new ApiTelemetryPushHandler());
+        server.createContext("/api/lang", new ApiLangHandler());
+        server.createContext("/lang/", new StaticLangHandler());
         server.createContext("/static/", new StaticHandler());
         server.createContext("/css/", new StaticHandler());
         server.createContext("/js/", new StaticHandler());
@@ -140,11 +172,13 @@ public class VelocityWebServer {
     }
 
     private synchronized CachedResource loadResource(String path, String contentType) {
-        // 1. Check external file in dataDirectory/web/
         if (dataDirectory != null) {
             String rel = path.startsWith("/web/") ? path.substring("/web/".length())
                     : (path.startsWith("/") ? path.substring(1) : path);
-            Path externalFile = dataDirectory.resolve("web").resolve(rel);
+            Path externalFile = dataDirectory.resolve(rel);
+            if (!Files.isRegularFile(externalFile) && !rel.startsWith("web/")) {
+                externalFile = dataDirectory.resolve("web").resolve(rel);
+            }
             if (Files.isRegularFile(externalFile)) {
                 try {
                     long fileLastMod = Files.getLastModifiedTime(externalFile).toMillis();
@@ -163,7 +197,6 @@ public class VelocityWebServer {
             }
         }
 
-        // 2. Fallback to classpath resource inside JAR
         CachedResource cached = resourceCache.get(path);
         if (cached != null && cached.lastModified() == 0L) {
             return cached;
@@ -446,6 +479,126 @@ public class VelocityWebServer {
         }
     }
 
+    private static final Map<String, String[]> LANG_META = new LinkedHashMap<>();
+    static {
+        LANG_META.put("en", new String[]{"English", "English", "gb"});
+        LANG_META.put("ru", new String[]{"Russian", "Русский", "ru"});
+        LANG_META.put("ar", new String[]{"Arabic", "العربية", "sa"});
+        LANG_META.put("zh", new String[]{"Chinese", "简体中文", "cn"});
+        LANG_META.put("fr", new String[]{"French", "Français", "fr"});
+        LANG_META.put("es", new String[]{"Spanish", "Español", "es"});
+        LANG_META.put("de", new String[]{"German", "Deutsch", "de"});
+        LANG_META.put("ja", new String[]{"Japanese", "日本語", "jp"});
+        LANG_META.put("pt", new String[]{"Portuguese", "Português", "pt"});
+        LANG_META.put("it", new String[]{"Italian", "Italiano", "it"});
+        LANG_META.put("pl", new String[]{"Polish", "Polski", "pl"});
+        LANG_META.put("ko", new String[]{"Korean", "한국어", "kr"});
+        LANG_META.put("tr", new String[]{"Turkish", "Türkçe", "tr"});
+    }
+
+    private class ApiLangHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
+            String code = params.get("code");
+
+            if (code != null && !code.isBlank()) {
+                serveLangPack(exchange, code.trim().toLowerCase());
+                return;
+            }
+
+            JsonObject root = new JsonObject();
+            root.addProperty("default", config.getDefaultLanguage());
+
+            Set<String> discoveredCodes = new LinkedHashSet<>();
+            Collections.addAll(discoveredCodes, DEFAULT_LANGUAGES);
+
+            if (dataDirectory != null) {
+                Path langDir = dataDirectory.resolve("lang");
+                if (Files.isDirectory(langDir)) {
+                    try (DirectoryStream<Path> stream = Files.newDirectoryStream(langDir, "*.json")) {
+                        for (Path p : stream) {
+                            String fName = p.getFileName().toString();
+                            String c = fName.substring(0, fName.length() - 5).toLowerCase();
+                            discoveredCodes.add(c);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            JsonArray arr = new JsonArray();
+            for (String c : discoveredCodes) {
+                JsonObject item = new JsonObject();
+                item.addProperty("code", c);
+                String[] meta = LANG_META.get(c);
+                if (meta != null) {
+                    item.addProperty("name", meta[0]);
+                    item.addProperty("native", meta[1]);
+                    item.addProperty("flag", meta[2]);
+                    if ("ar".equals(c)) {
+                        item.addProperty("rtl", true);
+                    }
+                } else {
+                    item.addProperty("name", c.toUpperCase());
+                    item.addProperty("native", c.toUpperCase());
+                    item.addProperty("flag", c);
+                }
+                arr.add(item);
+            }
+            root.add("languages", arr);
+
+            sendJson(exchange, 200, root.toString());
+        }
+    }
+
+    private void serveLangPack(HttpExchange exchange, String code) throws IOException {
+        String fileName = code + ".json";
+        if (dataDirectory != null) {
+            Path externalLang = dataDirectory.resolve("lang").resolve(fileName);
+            if (Files.isRegularFile(externalLang)) {
+                byte[] data = Files.readAllBytes(externalLang);
+                sendResponse(exchange, 200, "application/json; charset=utf-8", data);
+                return;
+            }
+        }
+
+        try (InputStream in = getClass().getResourceAsStream("/lang/" + fileName)) {
+            if (in != null) {
+                byte[] data = in.readAllBytes();
+                sendResponse(exchange, 200, "application/json; charset=utf-8", data);
+                return;
+            }
+        }
+
+        sendJson(exchange, 404, "{\"error\":\"Language pack not found: " + code + "\"}");
+    }
+
+    private void sendResponse(HttpExchange exchange, int statusCode, String contentType, byte[] data) throws IOException {
+        exchange.getResponseHeaders().set("Content-Type", contentType);
+        exchange.getResponseHeaders().set("Cache-Control", "public, max-age=3600");
+        exchange.sendResponseHeaders(statusCode, data.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(data);
+        }
+    }
+
+    private class StaticLangHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            String path = exchange.getRequestURI().getPath();
+            if (path.startsWith("/lang/")) {
+                String file = path.substring("/lang/".length());
+                if (file.endsWith(".json")) {
+                    String code = file.substring(0, file.length() - 5);
+                    serveLangPack(exchange, code.toLowerCase());
+                    return;
+                }
+            }
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+        }
+    }
+
     private class StaticHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -463,6 +616,7 @@ public class VelocityWebServer {
             else if (path.endsWith(".woff")) contentType = "font/woff";
             else if (path.endsWith(".ttf")) contentType = "font/ttf";
             else if (path.endsWith(".ico")) contentType = "image/x-icon";
+            else if (path.endsWith(".json")) contentType = "application/json; charset=utf-8";
 
             serveStatic(exchange, "/web" + (path.startsWith("/") ? path : "/" + path), contentType);
         }

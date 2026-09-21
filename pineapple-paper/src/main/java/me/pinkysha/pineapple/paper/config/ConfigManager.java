@@ -100,6 +100,11 @@ public final class ConfigManager implements MonitorConfig {
     }
 
     @Override
+    public String getDefaultLanguage() {
+        return config.getString("default_language", "en").trim().toLowerCase();
+    }
+
+    @Override
     public void logInfo(String message) {
         plugin.getLogger().info(message);
     }
