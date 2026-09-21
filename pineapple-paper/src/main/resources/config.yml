@@ -1,0 +1,44 @@
+# ==============================================================================
+#                  PineApple Telemetry Sampler for Paper 1.21.4
+# ==============================================================================
+
+# Unique server identifier sent over the plugin messaging channel
+# (e.g. "vanilla", "building", "survival", "lobby")
+server-name: "vanilla"
+
+# Plugin messaging channel for proxy communication
+channel: "pineapple:telemetry"
+
+# Standalone mode: if true, Paper will host its own local web server
+# Set to false when running behind Velocity proxy to eliminate web overhead.
+standalone-webserver: false
+
+proxy:
+  enable_http_push: true
+  url: "http://127.0.0.1:8080/api/telemetry/push"
+  secret_token: ""
+  timeout_ms: 2000
+
+server:
+  # Host IP to bind the HTTP server to (when standalone-webserver: true)
+  host: "0.0.0.0"
+  port: 8080
+  auto_open_browser: false
+
+auth:
+  enabled: true
+  username: "admin"
+  password: "admin"
+  remember_me_days: 30
+
+performance:
+  refresh_interval_ms: 2500
+  cache_ttl_ms: 1500
+  auto_pause_on_tab_hidden: true
+  enable_http_caching: true
+
+monitor:
+  show_worlds_detail: true
+  show_players_list: true
+  max_players_display: 12
+  show_avatars: true

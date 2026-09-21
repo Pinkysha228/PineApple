@@ -1,0 +1,18 @@
+name: PineApple
+version: '${project.version}'
+main: me.pinkysha.pineapple.paper.PineApplePaper
+api-version: '1.21'
+author: Pinkysha
+description: Ultra-lightweight real-time Web Monitor & Telemetry for Paper 1.21.4 servers
+folia-supported: true
+
+commands:
+  pineapple:
+    description: Control PineApple Web Monitor & Telemetry
+    permission: pineapple.admin
+    aliases: [pam, pmonitor, pineapplemonitor]
+
+permissions:
+  pineapple.admin:
+    description: Allows reloading and viewing PineApple monitor status
+    default: op

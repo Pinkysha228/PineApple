@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PineApple — Minecraft Network Monitor</title>
+    <!-- Modern Typography & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=4.2">
+    <script>
+        if (sessionStorage.getItem("pineapple_auth_transition") === "true") {
+            document.documentElement.classList.add("auth-transition-active", "auth-entering-root");
+        }
+    </script>
+    <script>
+        (function() {
+            var theme = localStorage.getItem('pineapple_theme') || 
+                (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+</head>
+<body>
+<div id="app-root">
+<div class="dashboard-page" id="dashboardPage">
+    <!-- Center Brand Stage for Cinematic Entrance Transition -->
+    <div class="dash-center-brand-stage" id="dashCenterBrandStage" aria-hidden="true">
+        <span class="auth-center-brand-text" id="dashCenterBrandText">PineApple</span>
+    </div>
+
+    <!-- Curved Dark Top Header -->
+    <header class="dashboard-curved-header" id="dashCurvedHeader">
+        <div class="curved-header-blob"></div>
+
+        <div class="dashboard-header-inner">
+            <nav class="dashboard-nav">
+                <div class="nav-brand" id="navBrandArea">
+                    <button type="button" class="btn-network-return" id="btnReturnToHub" onclick="switchToNetworkHub()" style="display: none;" title="Return to Network Overview">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span data-i18n="btn_network_overview">Network Overview</span>
+                    </button>
+                    <span class="nav-logo-badge" id="navLogoBadge">⚡</span>
+                    <span class="nav-title" id="navServerTitle">
+                        <span id="navServerNameText">PineApple</span>
+                        <span class="nav-subtitle-tag" id="navSubtitleTag">Network Monitor</span>
+                    </span>
+                </div>
+                <div class="nav-user-menu">
+                    <!-- Live Pulse Indicator -->
+                    <div class="live-status-pill" id="liveStatusPill" title="Real-time telemetry stream active">
+                        <span class="pulse-dot"></span>
+                        <span class="live-status-text" data-i18n="status_live">LIVE</span>
+                    </div>
+
+                    <!-- Theme Switcher in Dashboard Header -->
+                    <button type="button" class="theme-switcher-btn theme-switcher-dash" id="themeSwitcherDash" onclick="toggleTheme()" aria-label="Toggle Theme" title="Toggle Light/Dark Theme">
+                        <i class="fa-solid fa-moon theme-icon"></i>
+                    </button>
+
+                    <!-- Language Switcher in Dashboard Header -->
+                    <button type="button" class="lang-switcher-btn lang-switcher-dash" onclick="toggleLanguage()" aria-label="Switch Language" title="Switch Language">
+                        <i class="fa-solid fa-globe lang-globe-icon"></i>
+                        <span class="lang-code-text">EN</span>
+                    </button>
+
+                    <span class="nav-user-name" title="Operator Session">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span id="navUsername">admin</span>
+                    </span>
+
+                    <a href="/logout" class="btn-logout" id="btnLogoutLink">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        <span data-i18n="nav_logout">Sign Out</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- Hero Banner 1: Network Hub View -->
+            <div class="dash-hero-banner" id="hubHeroBanner">
+                <div class="dash-hero-text">
+                    <h2><span data-i18n="hub_banner_title">Minecraft Network:</span> <span class="highlight" id="hubProxyTitle">Velocity Proxy</span></h2>
+                    <p class="dash-meta-p">
+                        <span data-i18n="hub_active_servers">Active Servers:</span> <strong class="font-mono text-white" id="hubActiveServers">0 / 0</strong> &bull; 
+                        <span data-i18n="hub_total_players">Total Players:</span> <strong class="font-mono text-white" id="hubTotalPlayers">0</strong>
+                    </p>
+                </div>
+                <div class="dash-hero-actions">
+                    <button type="button" class="btn-dash-action" id="btnToggleLiveHub" onclick="toggleLiveTelemetry()">
+                        <i class="fa-solid fa-pause" id="liveIconHub"></i>
+                        <span id="liveBtnTextHub" data-i18n="btn_pause">Pause Stream</span>
+                    </button>
+                    <button type="button" class="btn-dash-action" onclick="refreshCurrentView(true)">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span data-i18n="btn_refresh">Refresh Now</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hero Banner 2: Individual Server Dashboard View -->
+            <div class="dash-hero-banner" id="serverHeroBanner" style="display: none;">
+                <div class="dash-hero-text">
+                    <h2><span data-i18n="dash_server_title">Minecraft Server:</span> <span class="highlight" id="valServerVersion">Paper 1.21.4</span></h2>
+                    <p class="dash-meta-p">
+                        <span id="valJavaVersion">Java 21</span> &bull; 
+                        <span data-i18n="dash_online_players">Players:</span> <strong class="font-mono text-white" id="valPlayersCount">0 / 20</strong> &bull; 
+                        <span data-i18n="dash_uptime_label">Uptime:</span> <strong class="font-mono text-white" id="valUptime">0h 0m 0s</strong>
+                    </p>
+                </div>
+                <div class="dash-hero-actions">
+                    <button type="button" class="btn-dash-action" id="btnToggleLiveServer" onclick="toggleLiveTelemetry()">
+                        <i class="fa-solid fa-pause" id="liveIconServer"></i>
+                        <span id="liveBtnTextServer" data-i18n="btn_pause">Pause Stream</span>
+                    </button>
+                    <button type="button" class="btn-dash-action" onclick="refreshCurrentView(true)">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span data-i18n="btn_refresh">Refresh Now</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="dashboard-container">
+        <!-- ==================================================================
+             VIEW 1: Network Hub (Multi-Server Vertical List)
+             ================================================================== -->
+        <section class="network-hub-view" id="networkHubView">
+            <div class="hub-header-card">
+                <div class="hub-header-identity">
+                    <div class="hub-icon-badge">
+                        <i class="fa-solid fa-network-wired"></i>
+                    </div>
+                    <div class="hub-header-text">
+                        <h2 class="hub-section-title" data-i18n="hub_section_title">Network Servers</h2>
+                        <p class="hub-section-sub" data-i18n="hub_section_sub">Select a server to view real-time performance telemetry, 3D flippable cards, and player activity</p>
+                    </div>
+                </div>
+                <div class="hub-header-actions">
+                    <span class="badge-pill font-mono" id="valHubLastUpdated">Synced: Just now</span>
+                </div>
+            </div>
+
+            <!-- Vertical list of servers: (server name) (version) (TPS) (RAM) (CPU) -->
+            <div class="network-servers-list" id="networkServersList">
+                <div class="hub-loading-placeholder text-center text-muted py-5">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x mb-3 text-accent"></i>
+                    <p>Discovering backend servers...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 2: Server Telemetry Dashboard (3D Flippable Cards & Details)
+             ================================================================== -->
+        <section class="server-dashboard-view" id="serverDashboardView" style="display: none;">
+            <!-- Resource Telemetry Grid: 3D Flippable Metric Cards -->
+            <div class="dash-grid">
+                <!-- 1. TPS & Tick Health Card (3D Flippable) -->
+                <div class="metric-flip-card" id="cardTps" data-metric="tps" role="region" aria-roledescription="metric card">
+                    <div class="metric-flip-inner">
+                        <!-- Front Face -->
+                        <div class="metric-face metric-face-front" role="button" tabindex="0" aria-pressed="false" aria-label="Server TPS - click for chart" title="Click for graph">
+                            <div class="metric-card-header">
+                                <div class="metric-header-left">
+                                    <div class="card-icon green"><i class="fa-solid fa-gauge-high"></i></div>
+                                    <div class="metric-title-wrap">
+                                        <h3 data-i18n="card_tps_title">Server TPS</h3>
+                                        <span class="metric-sublabel nowrap" id="valMspt">MSPT: 0.0 ms / 50.0 ms</span>
+                                    </div>
+                                </div>
+                                <div class="metric-header-right">
+                                    <span class="metric-value-huge text-green" id="valTps">20.0</span>
+                                    <span class="btn-card-flip-badge" aria-hidden="true"><i class="fa-solid fa-chart-line"></i> <span data-i18n="badge_chart">Chart</span></span>
+                                </div>
+                            </div>
+
+                            <div class="meter-bar-track">
+                                <div class="meter-bar-fill fill-green" id="barTps" style="width: 100%;"></div>
+                            </div>
+
+                            <div class="info-list compact-list">
+                                <div class="info-row">
+                                    <span class="info-label" data-i18n="label_tps_breakdown">TPS (1m, 5m, 15m):</span>
+                                    <span class="info-val font-mono nowrap" id="valTpsBreakdown">20.0, 20.0, 20.0</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label" data-i18n="label_tick_health">Tick Health:</span>
+                                    <span class="info-val font-mono nowrap text-green" id="valTickHealth">Optimal (0.0 ms)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Back Face: Telemetry History Graph (1m, 30m, 1h) -->
+                        <div class="metric-face metric-face-back" title="Click anywhere to return">
+                            <div class="cartesian-back-toolbar">
+                                <div class="cartesian-title-wrap">
+                                    <span class="cartesian-title-text" data-i18n="card_tps_title">Server TPS</span>
+                                </div>
+                                <div class="cartesian-time-selector" role="group" aria-label="Time frame">
+                                    <button type="button" class="btn-time-pill active" data-metric="tps" data-range="1m" data-i18n="time_1m">1 min</button>
+                                    <button type="button" class="btn-time-pill" data-metric="tps" data-range="30m" data-i18n="time_30m">30 min</button>
+                                    <button type="button" class="btn-time-pill" data-metric="tps" data-range="1h" data-i18n="time_1h">1 hour</button>
+                                </div>
+                                <button type="button" class="btn-flip-back" data-flip-back="tps" title="Return to card" aria-label="Back">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </div>
+
+                            <div class="cartesian-canvas-wrapper">
+                                <canvas class="cartesian-chart-canvas" id="chartCanvasTps"></canvas>
+                            </div>
+
+                            <div class="cartesian-back-footer">
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">MIN:</span>
+                                    <span class="stat-coord-val font-mono" id="chartMinTps">20.0</span>
+                                </div>
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">AVG:</span>
+                                    <span class="stat-coord-val font-mono" id="chartAvgTps">20.0</span>
+                                </div>
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">MAX:</span>
+                                    <span class="stat-coord-val font-mono" id="chartMaxTps">20.0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. JVM Heap Memory Card (3D Flippable) -->
+                <div class="metric-flip-card" id="cardRam" data-metric="ram" role="region" aria-roledescription="metric card">
+                    <div class="metric-flip-inner">
+                        <!-- Front Face -->
+                        <div class="metric-face metric-face-front" role="button" tabindex="0" aria-pressed="false" aria-label="JVM Heap Memory - click for chart" title="Click for graph">
+                            <div class="metric-card-header">
+                                <div class="metric-header-left">
+                                    <div class="card-icon blue"><i class="fa-solid fa-memory"></i></div>
+                                    <div class="metric-title-wrap">
+                                        <h3 data-i18n="card_ram_title">JVM Heap Memory</h3>
+                                        <span class="metric-sublabel nowrap" id="valRamUsedTotal">0 MB / 0 MB</span>
+                                    </div>
+                                </div>
+                                <div class="metric-header-right">
+                                    <span class="metric-value-huge text-blue" id="valRamPercent">0%</span>
+                                    <span class="btn-card-flip-badge" aria-hidden="true"><i class="fa-solid fa-chart-line"></i> <span data-i18n="badge_chart">Chart</span></span>
+                                </div>
+                            </div>
+
+                            <div class="meter-bar-track">
+                                <div class="meter-bar-fill fill-blue" id="barRamPercent" style="width: 0%;"></div>
+                            </div>
+
+                            <div class="info-list compact-list">
+                                <div class="info-row">
+                                    <span class="info-label" data-i18n="label_heap_committed">Allocated Heap:</span>
+                                    <span class="info-val font-mono nowrap" id="valHeapCommitted">0 MB</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label" data-i18n="label_system_ram">Host Memory:</span>
+                                    <span class="info-val font-mono nowrap" id="valSystemRam">0 GB Total</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Back Face: Telemetry History Graph (1m, 30m, 1h) -->
+                        <div class="metric-face metric-face-back" title="Click anywhere to return">
+                            <div class="cartesian-back-toolbar">
+                                <div class="cartesian-title-wrap">
+                                    <span class="cartesian-title-text" data-i18n="card_ram_title">JVM Heap Memory</span>
+                                </div>
+                                <div class="cartesian-time-selector" role="group" aria-label="Time frame">
+                                    <button type="button" class="btn-time-pill active" data-metric="ram" data-range="1m" data-i18n="time_1m">1 min</button>
+                                    <button type="button" class="btn-time-pill" data-metric="ram" data-range="30m" data-i18n="time_30m">30 min</button>
+                                    <button type="button" class="btn-time-pill" data-metric="ram" data-range="1h" data-i18n="time_1h">1 hour</button>
+                                </div>
+                                <button type="button" class="btn-flip-back" data-flip-back="ram" title="Return to card" aria-label="Back">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </div>
+
+                            <div class="cartesian-canvas-wrapper">
+                                <canvas class="cartesian-chart-canvas" id="chartCanvasRam"></canvas>
+                            </div>
+
+                            <div class="cartesian-back-footer">
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">MIN:</span>
+                                    <span class="stat-coord-val font-mono" id="chartMinRam">0 MB</span>
+                                </div>
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">AVG:</span>
+                                    <span class="stat-coord-val font-mono" id="chartAvgRam">0 MB</span>
+                                </div>
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">MAX:</span>
+                                    <span class="stat-coord-val font-mono" id="chartMaxRam">0 MB</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Host CPU Card (3D Flippable) -->
+                <div class="metric-flip-card" id="cardCpu" data-metric="cpu" role="region" aria-roledescription="metric card">
+                    <div class="metric-flip-inner">
+                        <!-- Front Face -->
+                        <div class="metric-face metric-face-front" role="button" tabindex="0" aria-pressed="false" aria-label="CPU Load - click for chart" title="Click for graph">
+                            <div class="metric-card-header">
+                                <div class="metric-header-left">
+                                    <div class="card-icon purple"><i class="fa-solid fa-microchip"></i></div>
+                                    <div class="metric-title-wrap">
+                                        <h3 data-i18n="card_cpu_title">CPU Load</h3>
+                                        <span class="metric-sublabel nowrap" id="valCpuCores">Host: 0% (12 Cores)</span>
+                                    </div>
+                                </div>
+                                <div class="metric-header-right">
+                                    <span class="metric-value-huge text-purple" id="valCpuPercent">0%</span>
+                                    <span class="btn-card-flip-badge" aria-hidden="true"><i class="fa-solid fa-chart-line"></i> <span data-i18n="badge_chart">Chart</span></span>
+                                </div>
+                            </div>
+
+                            <div class="meter-bar-track">
+                                <div class="meter-bar-fill fill-purple" id="barCpuPercent" style="width: 0%;"></div>
+                            </div>
+
+                            <div class="info-list compact-list">
+                                <div class="info-row">
+                                    <span class="info-label" data-i18n="label_process_cpu">JVM Process CPU:</span>
+                                    <span class="info-val font-mono nowrap" id="valCpuProcess">0.0%</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label" data-i18n="label_system_cpu">Host System Total:</span>
+                                    <span class="info-val font-mono nowrap" id="valCpuSystem">0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Back Face: Telemetry History Graph (1m, 30m, 1h) -->
+                        <div class="metric-face metric-face-back" title="Click anywhere to return">
+                            <div class="cartesian-back-toolbar">
+                                <div class="cartesian-title-wrap">
+                                    <span class="cartesian-title-text" data-i18n="card_cpu_title">CPU Load</span>
+                                </div>
+                                <div class="cartesian-time-selector" role="group" aria-label="Time frame">
+                                    <button type="button" class="btn-time-pill active" data-metric="cpu" data-range="1m" data-i18n="time_1m">1 min</button>
+                                    <button type="button" class="btn-time-pill" data-metric="cpu" data-range="30m" data-i18n="time_30m">30 min</button>
+                                    <button type="button" class="btn-time-pill" data-metric="cpu" data-range="1h" data-i18n="time_1h">1 hour</button>
+                                </div>
+                                <button type="button" class="btn-flip-back" data-flip-back="cpu" title="Return to card" aria-label="Back">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </div>
+
+                            <div class="cartesian-canvas-wrapper">
+                                <canvas class="cartesian-chart-canvas" id="chartCanvasCpu"></canvas>
+                            </div>
+
+                            <div class="cartesian-back-footer">
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">MIN:</span>
+                                    <span class="stat-coord-val font-mono" id="chartMinCpu">0.0%</span>
+                                </div>
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">AVG:</span>
+                                    <span class="stat-coord-val font-mono" id="chartAvgCpu">0.0%</span>
+                                </div>
+                                <div class="cartesian-stat-box">
+                                    <span class="stat-coord-label">MAX:</span>
+                                    <span class="stat-coord-val font-mono" id="chartMaxCpu">0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clean World & Entities Telemetry Strip -->
+            <div class="world-summary-strip">
+                <div class="summary-strip-item">
+                    <i class="fa-solid fa-cubes-stacked text-accent"></i>
+                    <span class="strip-label" data-i18n="label_loaded_chunks">Total Loaded Chunks:</span>
+                    <strong class="strip-val font-mono" id="valTotalChunks">0</strong>
+                </div>
+                <div class="summary-strip-divider"></div>
+                <div class="summary-strip-item">
+                    <i class="fa-solid fa-ghost text-purple"></i>
+                    <span class="strip-label" data-i18n="label_total_entities">Total Entities:</span>
+                    <strong class="strip-val font-mono" id="valTotalEntities">0</strong>
+                </div>
+            </div>
+
+            <!-- Online Players Table Card -->
+            <div class="info-card processes-card">
+                <div class="processes-card-header">
+                    <div class="proc-header-left">
+                        <div class="card-icon green"><i class="fa-solid fa-users"></i></div>
+                        <div>
+                            <h3 data-i18n="table_players_title">Online Players Telemetry</h3>
+                            <span class="metric-sublabel" data-i18n="table_players_sub">Live player session status and network latency</span>
+                        </div>
+                    </div>
+                    <div class="proc-header-right">
+                        <span class="badge-pill font-mono" id="valLastUpdated">Synced: Just now</span>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="styled-table" id="playersTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 54px;" data-i18n="th_avatar">AVATAR</th>
+                                <th data-i18n="th_player_name">PLAYER</th>
+                                <th style="width: 160px;" data-i18n="th_world">WORLD</th>
+                                <th style="width: 140px;" data-i18n="th_gamemode">MODE</th>
+                                <th style="width: 110px; text-align: right;" data-i18n="th_ping">PING</th>
+                            </tr>
+                        </thead>
+                        <tbody id="playersTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3" data-i18n="no_players_online">No players currently connected</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Worlds & Chunks Table Card -->
+            <div class="info-card processes-card mt-3">
+                <div class="processes-card-header">
+                    <div class="proc-header-left">
+                        <div class="card-icon dark-pill"><i class="fa-solid fa-earth-americas"></i></div>
+                        <div>
+                            <h3 data-i18n="table_worlds_title">Worlds & Chunk Generation</h3>
+                            <span class="metric-sublabel" data-i18n="table_worlds_sub">Loaded chunks and active entity counts per world</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="styled-table" id="worldsTable">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_world_name">WORLD NAME</th>
+                                <th style="width: 160px;" data-i18n="th_environment">DIMENSION</th>
+                                <th style="width: 160px;" data-i18n="th_chunks">LOADED CHUNKS</th>
+                                <th style="width: 160px;" data-i18n="th_entities">ENTITIES</th>
+                            </tr>
+                        </thead>
+                        <tbody id="worldsTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Dedicated Cinematic Curtain Overlay for View Transitions -->
+<div class="cinematic-curtain" id="cinematicCurtain" aria-hidden="true">
+    <div class="cinematic-curtain-bg"></div>
+    <div class="cinematic-curtain-brand">
+        <span class="cinematic-curtain-title" id="cinematicCurtainTitle">PineApple</span>
+        <span class="cinematic-curtain-sub" id="cinematicCurtainSub">Network Overview</span>
+    </div>
+</div>
+</div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+
+<script src="/static/js/main.js?v=4.2"></script>
+</body>
+</html>
