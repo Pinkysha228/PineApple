@@ -17,6 +17,9 @@ public final class PasswordSecurity {
     private static final int KEY_LENGTH_BITS = 256;
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    /** Minimum length accepted for any password set through the web UI or commands. */
+    public static final int MIN_PASSWORD_LENGTH = 8;
+
     private PasswordSecurity() {
     }
 

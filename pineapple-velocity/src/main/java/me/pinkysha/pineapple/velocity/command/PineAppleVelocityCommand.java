@@ -1,5 +1,6 @@
 package me.pinkysha.pineapple.velocity.command;
 
+import me.pinkysha.pineapple.velocity.security.PasswordSecurity;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import me.pinkysha.pineapple.velocity.PineAppleVelocity;
@@ -56,8 +57,8 @@ public class PineAppleVelocityCommand implements SimpleCommand {
                     return;
                 }
                 String newPass = args[1].trim();
-                if (newPass.length() < 4) {
-                    source.sendMessage(Component.text("Password must be at least 4 characters long.", NamedTextColor.RED));
+                if (newPass.length() < PasswordSecurity.MIN_PASSWORD_LENGTH) {
+                    source.sendMessage(Component.text("Password must be at least " + PasswordSecurity.MIN_PASSWORD_LENGTH + " characters long.", NamedTextColor.RED));
                     return;
                 }
                 boolean updated = userManager.updatePassword("admin", newPass);
@@ -83,8 +84,8 @@ public class PineAppleVelocityCommand implements SimpleCommand {
                         String user = args[2].trim();
                         String pass = args[3].trim();
                         boolean isSuper = args.length >= 5 && "true".equalsIgnoreCase(args[4]);
-                        if (pass.length() < 4) {
-                            source.sendMessage(Component.text("Password must be at least 4 characters long.", NamedTextColor.RED));
+                        if (pass.length() < PasswordSecurity.MIN_PASSWORD_LENGTH) {
+                            source.sendMessage(Component.text("Password must be at least " + PasswordSecurity.MIN_PASSWORD_LENGTH + " characters long.", NamedTextColor.RED));
                             return;
                         }
                         if (userManager.addUser(user, pass, isSuper)) {
@@ -100,8 +101,8 @@ public class PineAppleVelocityCommand implements SimpleCommand {
                         }
                         String user = args[2].trim();
                         String pass = args[3].trim();
-                        if (pass.length() < 4) {
-                            source.sendMessage(Component.text("Password must be at least 4 characters long.", NamedTextColor.RED));
+                        if (pass.length() < PasswordSecurity.MIN_PASSWORD_LENGTH) {
+                            source.sendMessage(Component.text("Password must be at least " + PasswordSecurity.MIN_PASSWORD_LENGTH + " characters long.", NamedTextColor.RED));
                             return;
                         }
                         if (userManager.updatePassword(user, pass)) {

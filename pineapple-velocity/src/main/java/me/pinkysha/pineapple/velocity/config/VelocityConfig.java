@@ -1,6 +1,7 @@
 package me.pinkysha.pineapple.velocity.config;
 
 import me.pinkysha.pineapple.velocity.security.PasswordSecurity;
+import me.pinkysha.pineapple.velocity.server.HttpSecurity;
 import org.slf4j.Logger;
 
 import java.io.BufferedReader;
@@ -181,7 +182,7 @@ public class VelocityConfig {
 
         // Salt changes on EVERY password change!
         String newSalt = PasswordSecurity.generateSalt();
-        String newHash = PasswordSecurity.hashPassword(newPlaintext.trim(), newSalt);
+        String newHash = PasswordSecurity.hashPassword(newPlaintext, newSalt);
 
         this.passwordSalt = newSalt;
         this.passwordHash = newHash;
@@ -255,7 +256,10 @@ public class VelocityConfig {
             writer.write(sb.toString());
         } catch (IOException e) {
             logger.warn("Failed to save config.properties: {}", e.getMessage());
+            return;
         }
+        // Holds the password hash and telemetry secret.
+        HttpSecurity.restrictToOwner(configFile);
     }
 
     private int parseInt(String val, int def) {

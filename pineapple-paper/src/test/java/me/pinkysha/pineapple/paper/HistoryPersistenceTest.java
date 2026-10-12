@@ -25,7 +25,7 @@ class HistoryPersistenceTest {
         @Override public boolean isStandaloneWebServer() { return false; }
         @Override public boolean isAuthEnabled() { return false; }
         @Override public String getUsername() { return "admin"; }
-        @Override public String getPassword() { return "admin"; }
+        @Override public boolean verifyPassword(String candidate) { return false; }
         @Override public int getRememberMeDays() { return 30; }
         @Override public int getMaxPlayersDisplay() { return 10; }
         @Override public long getCacheTtlMs() { return 1000L; }

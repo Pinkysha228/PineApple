@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import me.pinkysha.pineapple.velocity.config.VelocityConfig;
+import me.pinkysha.pineapple.velocity.security.PasswordSecurity;
 import me.pinkysha.pineapple.velocity.telemetry.ServerTelemetryRegistry;
 import me.pinkysha.pineapple.velocity.telemetry.ServerTelemetryState;
 import me.pinkysha.pineapple.velocity.user.UserManager;
@@ -42,6 +43,7 @@ public class VelocityWebServer {
 
     private HttpServer server;
     private final Map<String, CachedResource> resourceCache = new ConcurrentHashMap<>();
+    private final LoginRateLimiter loginRateLimiter = new LoginRateLimiter();
 
     private record CachedResource(byte[] data, String contentType, String etag, long lastModified) {}
 
@@ -234,17 +236,19 @@ public class VelocityWebServer {
     }
 
     private synchronized CachedResource loadResource(String path, String contentType) {
+        // Only files under the "web" folder may ever be served; never the data folder
+        // root, which holds config.properties, users.json and sessions.json.
+        if (!path.startsWith("/web/")) {
+            return null;
+        }
+        String rel = path.substring("/web/".length());
+        if (!HttpSecurity.isSafeRelativePath(rel)) {
+            return null;
+        }
+
         if (dataDirectory != null) {
-            String rel = path.startsWith("/web/") ? path.substring("/web/".length())
-                    : (path.startsWith("/") ? path.substring(1) : path);
-            if (rel.startsWith("static/")) {
-                rel = rel.substring("static/".length());
-            }
-            Path externalFile = dataDirectory.resolve(rel);
-            if (!Files.isRegularFile(externalFile) && !rel.startsWith("web/")) {
-                externalFile = dataDirectory.resolve("web").resolve(rel);
-            }
-            if (Files.isRegularFile(externalFile)) {
+            Path externalFile = HttpSecurity.resolveInside(dataDirectory.resolve("web"), rel);
+            if (externalFile != null && Files.isRegularFile(externalFile)) {
                 try {
                     long fileLastMod = Files.getLastModifiedTime(externalFile).toMillis();
                     CachedResource cached = resourceCache.get(path);
@@ -268,7 +272,7 @@ public class VelocityWebServer {
         }
 
         InputStream is = getClass().getResourceAsStream(path);
-        if (is == null && path.startsWith("/")) {
+        if (is == null) {
             is = getClass().getClassLoader().getResourceAsStream(path.substring(1));
         }
         if (is == null) {
@@ -326,6 +330,42 @@ public class VelocityWebServer {
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(res.data());
         }
+    }
+
+    /**
+     * Reads a size-limited request body; on overflow replies 413 and returns null.
+     */
+    private String readBodyOrReject(HttpExchange exchange) throws IOException {
+        try {
+            return HttpSecurity.readBody(exchange);
+        } catch (HttpSecurity.BodyTooLargeException e) {
+            sendJson(exchange, 413, "{\"success\":false,\"message\":\"Request body too large\"}");
+            return null;
+        }
+    }
+
+    /**
+     * Blocks cross-site form posts (CSRF) to state-changing endpoints; replies 403 when rejected.
+     */
+    private boolean rejectCrossOrigin(HttpExchange exchange) throws IOException {
+        if (HttpSecurity.isSameOrigin(exchange)) {
+            return false;
+        }
+        logger.warn("Rejected cross-origin {} {} from {}", exchange.getRequestMethod(),
+                exchange.getRequestURI().getPath(), HttpSecurity.clientAddress(exchange));
+        sendJson(exchange, 403, "{\"success\":false,\"message\":\"Cross-origin request rejected\"}");
+        return true;
+    }
+
+    /**
+     * Console and account endpoints need a real identity, so they are unavailable while auth is disabled.
+     */
+    private boolean rejectWhenAuthDisabled(HttpExchange exchange) throws IOException {
+        if (config.isAuthEnabled()) {
+            return false;
+        }
+        sendJson(exchange, 403, "{\"success\":false,\"message\":\"This feature requires auth.enabled=true\"}");
+        return true;
     }
 
     private Map<String, String> parseQueryParams(String query) {
@@ -419,12 +459,28 @@ public class VelocityWebServer {
             }
 
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                if (rejectCrossOrigin(exchange)) {
+                    return;
+                }
+                String client = HttpSecurity.clientAddress(exchange);
+                long retryAfterMs = loginRateLimiter.retryAfterMs(client);
+                if (retryAfterMs > 0) {
+                    long retryAfterSec = Math.max(1, (retryAfterMs + 999) / 1000);
+                    exchange.getResponseHeaders().set("Retry-After", String.valueOf(retryAfterSec));
+                    sendJson(exchange, 429, "{\"success\":false,\"message\":\"Too many failed login attempts. Try again in "
+                            + retryAfterSec + " seconds.\"}");
+                    return;
+                }
+
+                String body = readBodyOrReject(exchange);
+                if (body == null) {
+                    return;
+                }
                 String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
                 Map<String, String> params = parseRequestBody(body, contentType);
 
                 String user = params.getOrDefault("login", params.getOrDefault("username", "")).trim();
-                String pass = params.getOrDefault("password", "").trim();
+                String pass = params.getOrDefault("password", "");
                 boolean remember = "true".equalsIgnoreCase(params.getOrDefault("remember_me", "true"))
                         || "on".equalsIgnoreCase(params.getOrDefault("remember_me", ""));
 
@@ -432,6 +488,8 @@ public class VelocityWebServer {
                         || (contentType != null && contentType.contains("application/json"));
 
                 if (userManager.verifyPassword(user, pass)) {
+                    loginRateLimiter.recordSuccess(client);
+                    String secure = HttpSecurity.secureCookieSuffix(exchange);
                     String cookieHeader;
                     if (remember) {
                         int days = Math.max(1, config.getRememberMeDays());
@@ -439,10 +497,10 @@ public class VelocityWebServer {
                         long maxAgeSec = (long) days * 86400L;
                         Instant expiryInstant = Instant.now().plus(Duration.ofDays(days));
                         String expiresFormatted = DateTimeFormatter.RFC_1123_DATE_TIME.format(expiryInstant.atZone(ZoneOffset.UTC));
-                        cookieHeader = "pineapple_session=" + token + "; Path=/; Max-Age=" + maxAgeSec + "; Expires=" + expiresFormatted + "; HttpOnly; SameSite=Lax";
+                        cookieHeader = "pineapple_session=" + token + "; Path=/; Max-Age=" + maxAgeSec + "; Expires=" + expiresFormatted + "; HttpOnly; SameSite=Lax" + secure;
                     } else {
                         String token = sessionManager.createSession(user, 1);
-                        cookieHeader = "pineapple_session=" + token + "; Path=/; HttpOnly; SameSite=Lax";
+                        cookieHeader = "pineapple_session=" + token + "; Path=/; HttpOnly; SameSite=Lax" + secure;
                     }
                     exchange.getResponseHeaders().set("Set-Cookie", cookieHeader);
 
@@ -452,6 +510,8 @@ public class VelocityWebServer {
                         sendRedirect(exchange, "/dashboard");
                     }
                 } else {
+                    loginRateLimiter.recordFailure(client);
+                    logger.warn("Failed web login for user '{}' from {}", user, client);
                     if (isAjax) {
                         sendJson(exchange, 401, "{\"success\":false,\"message\":\"Invalid username or password\"}");
                     } else {
@@ -469,7 +529,8 @@ public class VelocityWebServer {
             if (token != null) {
                 sessionManager.invalidate(token);
             }
-            exchange.getResponseHeaders().set("Set-Cookie", "pineapple_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax");
+            exchange.getResponseHeaders().set("Set-Cookie", "pineapple_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
+                    + HttpSecurity.secureCookieSuffix(exchange));
             sendRedirect(exchange, "/");
         }
     }
@@ -481,10 +542,20 @@ public class VelocityWebServer {
                 sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
                 return;
             }
-            String token = getSessionToken(exchange);
-            String username = sessionManager.getUsername(token);
-            if (username == null) username = "admin";
-            boolean isSuper = userManager.isSuperAdmin(username);
+            String username;
+            boolean isSuper;
+            if (config.isAuthEnabled()) {
+                username = sessionManager.getUsername(getSessionToken(exchange));
+                if (username == null) {
+                    sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
+                    return;
+                }
+                isSuper = userManager.isSuperAdmin(username);
+            } else {
+                // Without auth there is no identity, so nobody is treated as a superadmin.
+                username = "anonymous";
+                isSuper = false;
+            }
 
             JsonObject root = new JsonObject();
             root.addProperty("username", username);
@@ -554,8 +625,14 @@ public class VelocityWebServer {
                 return;
             }
 
-            try (InputStream in = exchange.getRequestBody()) {
-                String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            try {
+                String json;
+                try {
+                    json = HttpSecurity.readBody(exchange, HttpSecurity.MAX_TELEMETRY_BODY_BYTES);
+                } catch (HttpSecurity.BodyTooLargeException e) {
+                    sendJson(exchange, 413, "{\"error\":\"Payload too large\"}");
+                    return;
+                }
                 if (json.isBlank()) {
                     sendJson(exchange, 400, "{\"error\":\"Empty payload\"}");
                     return;
@@ -602,6 +679,9 @@ public class VelocityWebServer {
                 sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
                 return;
             }
+            if (rejectWhenAuthDisabled(exchange)) {
+                return;
+            }
             Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
             String serverId = params.get("server");
             if (serverId == null || serverId.isBlank()) {
@@ -611,7 +691,10 @@ public class VelocityWebServer {
 
             String token = getSessionToken(exchange);
             String username = sessionManager.getUsername(token);
-            if (username == null) username = "admin";
+            if (username == null) {
+                sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
+                return;
+            }
             boolean isSuper = userManager.isSuperAdmin(username);
 
             Optional<ServerTelemetryState> stOpt = registry.getServer(serverId);
@@ -649,13 +732,22 @@ public class VelocityWebServer {
                 sendJson(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
                 return;
             }
+            if (rejectWhenAuthDisabled(exchange) || rejectCrossOrigin(exchange)) {
+                return;
+            }
 
             String token = getSessionToken(exchange);
             String username = sessionManager.getUsername(token);
-            if (username == null) username = "admin";
+            if (username == null) {
+                sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
+                return;
+            }
             boolean isSuper = userManager.isSuperAdmin(username);
 
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            String body = readBodyOrReject(exchange);
+            if (body == null) {
+                return;
+            }
             String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
             Map<String, String> params = parseRequestBody(body, contentType);
 
@@ -664,6 +756,10 @@ public class VelocityWebServer {
 
             if (serverId.isEmpty() || command.isEmpty()) {
                 sendJson(exchange, 400, "{\"error\":\"Missing server or command parameter\"}");
+                return;
+            }
+            if (command.length() > 1000 || command.indexOf('\n') >= 0 || command.indexOf('\r') >= 0) {
+                sendJson(exchange, 400, "{\"error\":\"Invalid command\"}");
                 return;
             }
 
@@ -702,25 +798,42 @@ public class VelocityWebServer {
                 sendJson(exchange, 405, "{\"success\":false,\"message\":\"Method Not Allowed\"}");
                 return;
             }
+            if (rejectWhenAuthDisabled(exchange) || rejectCrossOrigin(exchange)) {
+                return;
+            }
 
             String token = getSessionToken(exchange);
             String username = sessionManager.getUsername(token);
-            if (username == null) username = "admin";
+            if (username == null) {
+                sendJson(exchange, 401, "{\"success\":false,\"message\":\"Unauthorized\"}");
+                return;
+            }
 
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            // A stolen session must not be usable to brute-force the current password.
+            String limiterKey = "password:" + username.toLowerCase();
+            if (loginRateLimiter.retryAfterMs(limiterKey) > 0) {
+                sendJson(exchange, 429, "{\"success\":false,\"message\":\"Too many failed attempts. Try again later.\"}");
+                return;
+            }
+
+            String body = readBodyOrReject(exchange);
+            if (body == null) {
+                return;
+            }
             String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
             Map<String, String> params = parseRequestBody(body, contentType);
 
-            String oldPassword = params.getOrDefault("old_password", params.getOrDefault("current_password", "")).trim();
-            String newPassword = params.getOrDefault("new_password", params.getOrDefault("password", "")).trim();
+            String oldPassword = params.getOrDefault("old_password", params.getOrDefault("current_password", ""));
+            String newPassword = params.getOrDefault("new_password", params.getOrDefault("password", ""));
 
-            if (newPassword.isEmpty()) {
+            if (newPassword.isBlank()) {
                 sendJson(exchange, 400, "{\"success\":false,\"message\":\"New password cannot be empty\"}");
                 return;
             }
 
-            if (newPassword.length() < 4) {
-                sendJson(exchange, 400, "{\"success\":false,\"message\":\"Password must be at least 4 characters long\"}");
+            if (newPassword.length() < PasswordSecurity.MIN_PASSWORD_LENGTH) {
+                sendJson(exchange, 400, "{\"success\":false,\"message\":\"Password must be at least "
+                        + PasswordSecurity.MIN_PASSWORD_LENGTH + " characters long\"}");
                 return;
             }
 
@@ -729,13 +842,22 @@ public class VelocityWebServer {
                 return;
             }
             if (!userManager.verifyPassword(username, oldPassword)) {
+                loginRateLimiter.recordFailure(limiterKey);
                 sendJson(exchange, 403, "{\"success\":false,\"message\":\"Current password is incorrect\"}");
                 return;
             }
+            loginRateLimiter.recordSuccess(limiterKey);
 
             boolean ok = userManager.updatePassword(username, newPassword);
             if (ok) {
-                sendJson(exchange, 200, "{\"success\":true,\"message\":\"Password successfully updated with new salt!\"}");
+                // Every session of this user was revoked by the password change; issue a fresh one
+                // so only the browser that changed the password stays signed in.
+                sessionManager.invalidateUser(username);
+                int days = Math.max(1, config.getRememberMeDays());
+                String freshToken = sessionManager.createSession(username, days);
+                exchange.getResponseHeaders().set("Set-Cookie", "pineapple_session=" + freshToken + "; Path=/; Max-Age="
+                        + ((long) days * 86400L) + "; HttpOnly; SameSite=Lax" + HttpSecurity.secureCookieSuffix(exchange));
+                sendJson(exchange, 200, "{\"success\":true,\"message\":\"Password successfully updated. Other sessions were signed out.\"}");
             } else {
                 sendJson(exchange, 500, "{\"success\":false,\"message\":\"Failed to update password\"}");
             }
@@ -771,6 +893,10 @@ public class VelocityWebServer {
     }
 
     private void serveLangPack(HttpExchange exchange, String code) throws IOException {
+        if (!HttpSecurity.isValidLangCode(code)) {
+            sendJson(exchange, 404, "{\"error\":\"Language pack not found\"}");
+            return;
+        }
         String fileName = code + ".json";
         if (dataDirectory != null) {
             Path externalLang = dataDirectory.resolve("lang").resolve(fileName);
@@ -789,7 +915,7 @@ public class VelocityWebServer {
             }
         }
 
-        sendJson(exchange, 404, "{\"error\":\"Language pack not found: " + code + "\"}");
+        sendJson(exchange, 404, "{\"error\":\"Language pack not found\"}");
     }
 
     private void sendResponse(HttpExchange exchange, int statusCode, String contentType, byte[] data) throws IOException {

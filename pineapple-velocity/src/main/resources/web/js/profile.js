@@ -240,8 +240,8 @@ async function handleProfilePasswordSubmit(event) {
     const oldPassInput = document.getElementById('profile_old_password');
     const newPassInput = document.getElementById('profile_new_password');
 
-    if (!newPassInput || newPassInput.value.length < 4) {
-        showToast('error', 'Пароль должен содержать минимум 4 символа');
+    if (!newPassInput || newPassInput.value.length < 8) {
+        showToast('error', 'Пароль должен содержать минимум 8 символов');
         return;
     }
 

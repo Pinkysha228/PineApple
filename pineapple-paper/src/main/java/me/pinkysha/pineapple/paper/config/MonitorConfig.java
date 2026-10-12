@@ -10,7 +10,7 @@ public interface MonitorConfig {
 
     boolean isAuthEnabled();
     String getUsername();
-    String getPassword();
+    boolean verifyPassword(String candidate);
     int getRememberMeDays();
     int getMaxPlayersDisplay();
     long getCacheTtlMs();

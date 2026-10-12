@@ -27,7 +27,7 @@ public class SessionManager {
         }
 
         public String getUsername() {
-            return username != null ? username : "admin";
+            return username;
         }
 
         public long getExpiry() {
@@ -85,7 +85,19 @@ public class SessionManager {
     public String getUsername(String token) {
         if (!isValid(token)) return null;
         SessionRecord rec = sessions.get(token);
-        return rec != null ? rec.getUsername() : "admin";
+        return rec != null ? rec.getUsername() : null;
+    }
+
+    /**
+     * Revokes every session belonging to the given user (e.g. after a password change).
+     */
+    public void invalidateUser(String username) {
+        if (username == null) return;
+        String key = username.trim();
+        boolean removed = sessions.entrySet().removeIf(e -> key.equalsIgnoreCase(e.getValue().getUsername()));
+        if (removed) {
+            save();
+        }
     }
 
     public void invalidate(String token) {
@@ -126,6 +138,7 @@ public class SessionManager {
             try (Writer writer = Files.newBufferedWriter(storageFile)) {
                 GSON.toJson(sessions, SESSIONS_TYPE, writer);
             }
+            HttpSecurity.restrictToOwner(storageFile);
         } catch (Exception ignored) {}
     }
 }

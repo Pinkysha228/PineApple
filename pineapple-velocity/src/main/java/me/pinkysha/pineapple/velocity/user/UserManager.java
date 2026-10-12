@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.pinkysha.pineapple.velocity.config.VelocityConfig;
 import me.pinkysha.pineapple.velocity.security.PasswordSecurity;
+import me.pinkysha.pineapple.velocity.server.HttpSecurity;
 import org.slf4j.Logger;
 
 import java.io.BufferedReader;
@@ -16,6 +17,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class UserManager {
 
@@ -27,6 +29,19 @@ public class UserManager {
     private final VelocityConfig config;
     private final Logger logger;
     private final Map<String, UserEntry> users = new ConcurrentHashMap<>();
+    private volatile Consumer<String> credentialsRevokedListener = username -> {};
+
+    /** Hash checked for unknown users so login timing does not reveal which usernames exist. */
+    private static final String DUMMY_SALT = PasswordSecurity.generateSalt();
+    private static final String DUMMY_HASH = PasswordSecurity.hashPassword("pineapple-dummy", DUMMY_SALT);
+
+    /**
+     * Called with the username whenever its password changes or the account is removed,
+     * so existing web sessions can be revoked.
+     */
+    public void setCredentialsRevokedListener(Consumer<String> listener) {
+        this.credentialsRevokedListener = listener != null ? listener : username -> {};
+    }
 
     public UserManager(Path dataDirectory, VelocityConfig config, Logger logger) {
         this.usersFile = dataDirectory.resolve("users.json");
@@ -90,6 +105,7 @@ public class UserManager {
             try (BufferedWriter writer = Files.newBufferedWriter(usersFile, StandardCharsets.UTF_8)) {
                 GSON.toJson(root, writer);
             }
+            HttpSecurity.restrictToOwner(usersFile);
         } catch (Exception e) {
             if (logger != null) {
                 logger.error("Failed to save users.json: {}", e.getMessage());
@@ -101,7 +117,10 @@ public class UserManager {
         if (username == null || candidatePassword == null) return false;
         String key = username.trim().toLowerCase();
         UserEntry entry = users.get(key);
-        if (entry == null) return false;
+        if (entry == null) {
+            PasswordSecurity.verifyPassword(candidatePassword, DUMMY_SALT, DUMMY_HASH);
+            return false;
+        }
         return PasswordSecurity.verifyPassword(candidatePassword, entry.passwordSalt(), entry.passwordHash());
     }
 
@@ -120,6 +139,7 @@ public class UserManager {
         if ("admin".equals(key)) {
             config.updatePassword(newPassword);
         }
+        credentialsRevokedListener.accept(key);
         return true;
     }
 
@@ -142,6 +162,7 @@ public class UserManager {
         UserEntry removed = users.remove(key);
         if (removed != null) {
             save();
+            credentialsRevokedListener.accept(key);
             return true;
         }
         return false;

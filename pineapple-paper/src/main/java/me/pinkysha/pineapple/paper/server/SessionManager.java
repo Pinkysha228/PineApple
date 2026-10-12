@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -45,7 +45,9 @@ public class SessionManager {
     }
 
     public String createSession(String username, boolean rememberMe, int rememberMeDays) {
-        String token = UUID.randomUUID().toString().replace("-", "") + Long.toHexString(RANDOM.nextLong());
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         long lifetimeMs;
         if (rememberMe) {
             lifetimeMs = (long) Math.max(1, rememberMeDays) * 24L * 3600L * 1000L;
@@ -126,6 +128,7 @@ public class SessionManager {
                 }
                 GSON.toJson(toSave, SESSIONS_TYPE, writer);
             }
+            HttpSecurity.restrictToOwner(storageFile);
         } catch (Exception ignored) {}
     }
 }

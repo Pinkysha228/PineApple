@@ -18,12 +18,16 @@ default_language: "en"
 
 proxy:
   enable_http_push: true
+  # Console commands from the web UI come back in the push response, so keep this link on
+  # localhost / a private network, or use https:// when the proxy is reached over the internet.
   url: "http://127.0.0.1:8080/api/telemetry/push"
+  # Must match telemetry.secret_token in the Velocity proxy's config.properties.
   secret_token: ""
   timeout_ms: 2000
 
 server:
-  # Host IP to bind the HTTP server to (when standalone-webserver: true)
+  # Host IP to bind the HTTP server to (when standalone-webserver: true).
+  # Use "127.0.0.1" if the panel is only reached through a reverse proxy.
   host: "0.0.0.0"
   port: 8080
   auto_open_browser: false
@@ -31,7 +35,9 @@ server:
 auth:
   enabled: true
   username: "admin"
-  password: "admin"
+  # Leave empty to get a random password printed to the console on first start.
+  # Any value written here is hashed into password_hash/password_salt and removed on (re)load.
+  password: ""
   remember_me_days: 30
 
 performance:

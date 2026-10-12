@@ -43,6 +43,7 @@ public class WebServer {
     private ThreadPoolExecutor executor;
 
     private final Map<String, CachedResource> resourceCache = new HashMap<>();
+    private final LoginRateLimiter loginRateLimiter = new LoginRateLimiter();
 
     private record CachedResource(byte[] data, String contentType, String etag, long lastModified) {}
 
@@ -144,14 +145,19 @@ public class WebServer {
     }
 
     private synchronized CachedResource loadResource(String path, String contentType) {
+        // Only files under the "web" folder may ever be served; never the data folder
+        // root, which holds config.yml and sessions.json.
+        if (!path.startsWith("/web/")) {
+            return null;
+        }
+        String rel = path.substring("/web/".length());
+        if (!HttpSecurity.isSafeRelativePath(rel)) {
+            return null;
+        }
+
         if (dataDirectory != null) {
-            String rel = path.startsWith("/web/") ? path.substring("/web/".length())
-                    : (path.startsWith("/") ? path.substring(1) : path);
-            Path externalFile = dataDirectory.resolve(rel);
-            if (!Files.isRegularFile(externalFile) && !rel.startsWith("web/")) {
-                externalFile = dataDirectory.resolve("web").resolve(rel);
-            }
-            if (Files.isRegularFile(externalFile)) {
+            Path externalFile = HttpSecurity.resolveInside(dataDirectory.resolve("web"), rel);
+            if (externalFile != null && Files.isRegularFile(externalFile)) {
                 try {
                     long fileLastMod = Files.getLastModifiedTime(externalFile).toMillis();
                     CachedResource cached = resourceCache.get(path);
@@ -175,7 +181,7 @@ public class WebServer {
         }
 
         InputStream is = getClass().getResourceAsStream(path);
-        if (is == null && path.startsWith("/")) {
+        if (is == null) {
             is = getClass().getClassLoader().getResourceAsStream(path.substring(1));
         }
         if (is == null) {
@@ -311,6 +317,11 @@ public class WebServer {
     }
 
     private void serveLangPack(HttpExchange exchange, String code) throws IOException {
+        if (!HttpSecurity.isValidLangCode(code)) {
+            byte[] err = "{\"error\":\"Language pack not found\"}".getBytes(StandardCharsets.UTF_8);
+            sendResponse(exchange, 404, "application/json; charset=utf-8", err);
+            return;
+        }
         String fileName = code + ".json";
         if (dataDirectory != null) {
             Path externalLang = dataDirectory.resolve("lang").resolve(fileName);
@@ -329,7 +340,7 @@ public class WebServer {
             }
         }
 
-        String err = "{\"error\":\"Language pack not found: " + code + "\"}";
+        String err = "{\"error\":\"Language pack not found\"}";
         sendResponse(exchange, 404, "application/json; charset=utf-8", err.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -481,23 +492,50 @@ public class WebServer {
                 return;
             }
 
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            if (!HttpSecurity.isSameOrigin(exchange)) {
+                sendJsonResponse(exchange, 403, "{\"success\":false,\"message\":\"Cross-origin request rejected\"}");
+                return;
+            }
+
+            String client = HttpSecurity.clientAddress(exchange);
+            long retryAfterMs = loginRateLimiter.retryAfterMs(client);
+            if (retryAfterMs > 0) {
+                long retryAfterSec = Math.max(1, (retryAfterMs + 999) / 1000);
+                exchange.getResponseHeaders().set("Retry-After", String.valueOf(retryAfterSec));
+                sendJsonResponse(exchange, 429, "{\"success\":false,\"message\":\"Too many failed login attempts. Try again in "
+                        + retryAfterSec + " seconds.\"}");
+                return;
+            }
+
+            String body;
+            try {
+                body = HttpSecurity.readBody(exchange);
+            } catch (HttpSecurity.BodyTooLargeException e) {
+                sendJsonResponse(exchange, 413, "{\"success\":false,\"message\":\"Request body too large\"}");
+                return;
+            }
             Map<String, String> params = parseRequestBody(body, exchange.getRequestHeaders().getFirst("Content-Type"));
 
             String usernameInput = params.getOrDefault("login", params.getOrDefault("username", "")).trim();
-            String passwordInput = params.getOrDefault("password", "").trim();
+            String passwordInput = params.getOrDefault("password", "");
             boolean rememberMe = "true".equalsIgnoreCase(params.getOrDefault("remember_me", "true"))
                     || "on".equalsIgnoreCase(params.getOrDefault("remember_me", ""));
 
             String expectedUser = config != null ? config.getUsername() : "admin";
-            String expectedPass = config != null ? config.getPassword() : "admin";
             int rememberDays = config != null ? config.getRememberMeDays() : 30;
 
-            if (expectedUser.equals(usernameInput) && expectedPass.equals(passwordInput)) {
+            // Always run the password hash so timing does not reveal whether the username matched.
+            boolean passwordOk = config != null && config.verifyPassword(passwordInput);
+            boolean userOk = MessageDigest.isEqual(expectedUser.getBytes(StandardCharsets.UTF_8),
+                    usernameInput.getBytes(StandardCharsets.UTF_8));
+
+            if (userOk && passwordOk) {
+                loginRateLimiter.recordSuccess(client);
                 String token = sessionManager.createSession(usernameInput, rememberMe, rememberDays);
 
                 StringBuilder cookieHeader = new StringBuilder();
-                cookieHeader.append(COOKIE_NAME).append("=").append(token).append("; Path=/; HttpOnly; SameSite=Lax");
+                cookieHeader.append(COOKIE_NAME).append("=").append(token).append("; Path=/; HttpOnly; SameSite=Lax")
+                        .append(HttpSecurity.secureCookieSuffix(exchange));
                 if (rememberMe) {
                     int days = Math.max(1, rememberDays);
                     long maxAgeSec = (long) days * 24L * 3600L;
@@ -507,13 +545,19 @@ public class WebServer {
                 }
                 exchange.getResponseHeaders().set("Set-Cookie", cookieHeader.toString());
 
-                String resp = "{\"success\":true,\"message\":\"Authenticated successfully!\",\"redirect\":\"/dashboard\"}";
-                sendResponse(exchange, 200, "application/json; charset=UTF-8", resp.getBytes(StandardCharsets.UTF_8));
+                sendJsonResponse(exchange, 200, "{\"success\":true,\"message\":\"Authenticated successfully!\",\"redirect\":\"/dashboard\"}");
             } else {
-                String resp = "{\"success\":false,\"message\":\"Invalid credentials. Check config.yml\"}";
-                sendResponse(exchange, 401, "application/json; charset=UTF-8", resp.getBytes(StandardCharsets.UTF_8));
+                loginRateLimiter.recordFailure(client);
+                if (config != null) {
+                    config.logWarning("Failed web login for user '" + usernameInput + "' from " + client);
+                }
+                sendJsonResponse(exchange, 401, "{\"success\":false,\"message\":\"Invalid username or password\"}");
             }
         }
+    }
+
+    private void sendJsonResponse(HttpExchange exchange, int status, String json) throws IOException {
+        sendResponse(exchange, status, "application/json; charset=UTF-8", json.getBytes(StandardCharsets.UTF_8));
     }
 
     private class LogoutHandler implements HttpHandler {
@@ -524,7 +568,8 @@ public class WebServer {
                 sessionManager.invalidate(token);
             }
 
-            exchange.getResponseHeaders().add("Set-Cookie", COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+            exchange.getResponseHeaders().add("Set-Cookie", COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+                    + HttpSecurity.secureCookieSuffix(exchange));
             sendRedirect(exchange, "/");
         }
     }

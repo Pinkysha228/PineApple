@@ -1,5 +1,6 @@
 package me.pinkysha.pineapple.velocity;
 
+import me.pinkysha.pineapple.velocity.security.PasswordSecurity;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
@@ -66,6 +67,7 @@ public class PineAppleVelocity {
         this.telemetryRegistry = new ServerTelemetryRegistry();
         this.sessionManager = new SessionManager(dataDirectory);
         this.userManager = new UserManager(dataDirectory, config, logger);
+        this.userManager.setCredentialsRevokedListener(sessionManager::invalidateUser);
 
         // Register proxy commands
         CommandManager commandManager = server.getCommandManager();
@@ -90,8 +92,8 @@ public class PineAppleVelocity {
                 return;
             }
             String newPass = args[0].trim();
-            if (newPass.length() < 4) {
-                invocation.source().sendMessage(Component.text("Password must be at least 4 characters long.", NamedTextColor.RED));
+            if (newPass.length() < PasswordSecurity.MIN_PASSWORD_LENGTH) {
+                invocation.source().sendMessage(Component.text("Password must be at least " + PasswordSecurity.MIN_PASSWORD_LENGTH + " characters long.", NamedTextColor.RED));
                 return;
             }
             if (userManager.updatePassword("admin", newPass)) {

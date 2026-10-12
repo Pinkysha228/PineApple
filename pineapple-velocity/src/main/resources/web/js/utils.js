@@ -21,9 +21,11 @@ function showToast(type, message, duration = 3800) {
 
     toast.innerHTML = `
         <div class="toast-icon"><i class="fa-solid ${iconClass}"></i></div>
-        <div class="toast-content">${message}</div>
+        <div class="toast-content"></div>
         <button class="toast-close" aria-label="Close" onclick="this.parentElement.remove()">&times;</button>
     `;
+    // Messages can echo user input or server text, so never parse them as HTML.
+    toast.querySelector('.toast-content').textContent = message;
 
     container.appendChild(toast);
 
