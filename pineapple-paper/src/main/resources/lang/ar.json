@@ -3,7 +3,6 @@
   "hero_tagline": "مراقبة موارد وخادم ماين كرافت عن بُعد في الوقت الفعلي.",
   "hero_feat_1": "معدل TPS و MSPT المباشر",
   "hero_feat_2": "ذاكرة JVM Heap ومعالج النظام",
-
   "auth_subtitle": "الوصول إلى وحدة تحكم Paper",
   "auth_title": "مصادقة الخادم",
   "label_login": "اسم المشرف",
@@ -12,10 +11,8 @@
   "placeholder_password": "أدخل كلمة المرور",
   "label_remember_me": "تذكر هذه الجلسة",
   "btn_submit_login": "دخول المراقب",
-
   "host_config_title": "إعدادات خادم Paper",
   "host_config_desc": "بيانات الدخول وخيارات الشبكة في plugins/PineAppleMonitor/config.yml.",
-
   "nav_logout": "تسجيل الخروج",
   "dash_server_title": "خادم ماين كرافت:",
   "dash_online_players": "اللاعبون:",
@@ -25,7 +22,6 @@
   "btn_pause": "إيقاف مؤقت",
   "btn_resume": "استئناف البث",
   "btn_refresh": "تحديث الآن",
-
   "card_tps_title": "معدل TPS للخادم",
   "label_tps_breakdown": "TPS (1د, 5د, 15د):",
   "label_tick_health": "صحة التيك:",
@@ -33,17 +29,14 @@
   "time_1m": "1 دقيقة",
   "time_30m": "30 دقيقة",
   "time_1h": "ساعة واحدة",
-
   "card_ram_title": "ذاكرة JVM Heap",
   "label_heap_committed": "الذاكرة المخصصة:",
   "label_system_ram": "ذاكرة النظام المضيف:",
-
   "card_cpu_title": "استهلاك المعالج",
   "label_process_cpu": "معالج عملية JVM:",
   "label_system_cpu": "إجمالي معالج النظام:",
   "label_loaded_chunks": "إجمالي التشانكات المحملة:",
   "label_total_entities": "إجمالي الكائنات:",
-
   "table_players_title": "بيانات اللاعبين المتصلين",
   "table_players_sub": "حالة الجلسة المباشرة وزمن الاستجابة",
   "th_avatar": "الصورة",
@@ -52,14 +45,12 @@
   "th_gamemode": "النمط",
   "th_ping": "البينغ",
   "no_players_online": "لا يوجد لاعبون متصلون حالياً",
-
   "table_worlds_title": "العوالم وتوليد التشانكات",
   "table_worlds_sub": "التشانكات والكائنات المحملة لكل عالم",
   "th_world_name": "اسم العالم",
   "th_environment": "البعد",
-  "th_chunks": "التشانكات المحملة",
+  "th_chunks": "تشانكات",
   "th_entities": "الكائنات",
-
   "chart_collecting_data": "جاري جمع البيانات...",
   "chart_waiting_history": "بانتظار سجل الخادم...",
   "toast_welcome_back": "مرحباً بك في مراقب Paper، {user}!",
@@ -78,5 +69,19 @@
   "hub_section_title": "خوادم الشبكة",
   "hub_section_sub": "اختر خادماً لمشاهدة قياسات الأداء وبطاقات 3D ونشاط اللاعبين",
   "lang_select_title": "اختر اللغة",
-  "lang_search_placeholder": "ابحث عن لغة..."
+  "lang_search_placeholder": "ابحث عن لغة...",
+  "profile_badge": "الملف الشخصي",
+  "profile_tagline": "إدارة جلسة المستخدم وتغيير كلمة المرور ومصفوفة صلاحيات الشبكة.",
+  "profile_status_user": "المستخدم",
+  "profile_status_role": "الصلاحيات",
+  "profile_subtitle": "إدارة الجلسة",
+  "profile_title": "ملف المستخدم",
+  "profile_change_password": "تغيير كلمة المرور",
+  "label_old_password": "كلمة المرور الحالية",
+  "label_new_password": "كلمة المرور الجديدة",
+  "btn_save_password": "حفظ كلمة المرور",
+  "profile_permissions": "صلاحيات الوصول",
+  "btn_to_dashboard": "إلى لوحة التحكم",
+  "console_title": "وحدة تحكم وسجلات الخادم",
+  "console_sub": "بث مباشر لمخرجات الطرفية من خادم ماين كرافت"
 }

@@ -8,7 +8,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/style.css?v=4.3">
+    <link rel="stylesheet" href="/static/css/base.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/auth.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/components.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/theme.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/profile.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/console.css?v=5.2">
     <script>
         if (sessionStorage.getItem("pineapple_auth_transition") === "true") {
             document.documentElement.classList.add("auth-transition-active", "auth-entering-root");
@@ -37,15 +43,15 @@
         <div class="dashboard-header-inner">
             <nav class="dashboard-nav">
                 <div class="nav-brand" id="navBrandArea">
-                    <button type="button" class="btn-network-return" id="btnReturnToHub" onclick="switchToNetworkHub()" style="display: none;" title="Return to Network Overview">
-                        <i class="fa-solid fa-arrow-left"></i>
-                        <span data-i18n="btn_network_overview">Network Overview</span>
-                    </button>
                     <span class="nav-logo-badge" id="navLogoBadge">⚡</span>
                     <span class="nav-title" id="navServerTitle">
                         <span id="navServerNameText">PineApple</span>
                         <span class="nav-subtitle-tag" id="navSubtitleTag">Network Monitor</span>
                     </span>
+                    <button type="button" class="btn-network-return" id="btnReturnToHub" onclick="switchToNetworkHub()" style="display: none;" title="Return to Network Overview">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span data-i18n="btn_network_overview">Network Overview</span>
+                    </button>
                 </div>
                 <div class="nav-user-menu">
                     <div class="live-status-pill" id="liveStatusPill" title="Real-time telemetry stream active">
@@ -59,7 +65,7 @@
 
                     <div class="lang-dropdown-wrapper" id="langDropdownWrapperDash">
                         <button type="button" class="lang-switcher-btn lang-switcher-dash" id="langDropdownBtnDash" onclick="toggleLanguageDropdown(event, 'Dash')" aria-haspopup="true" aria-expanded="false" title="Select Language">
-                            <span class="lang-flag-badge" id="currentLangFlagDash"></span>
+                            <span class="lang-flag-badge" id="currentLangFlagDash"><svg class="flag-svg" viewBox="0 0 60 45" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 h60 v45 H0 z" fill="#012169"/><path d="M0 0 L60 45 M60 0 L0 45" stroke="#ffffff" stroke-width="8"/><path d="M0 0 L60 45 M60 0 L0 45" stroke="#C8102E" stroke-width="4.8"/><path d="M30 0 v45 M0 22.5 h60" stroke="#ffffff" stroke-width="14"/><path d="M30 0 v45 M0 22.5 h60" stroke="#C8102E" stroke-width="8.4"/></svg></span>
                             <span class="lang-code-text" id="currentLangCodeDash">EN</span>
                             <i class="fa-solid fa-chevron-down lang-chevron-icon"></i>
                         </button>
@@ -68,14 +74,14 @@
                                 <span data-i18n="lang_select_title">Select Language</span>
                             </div>
                             <div class="lang-dropdown-list" id="langDropdownListDash" role="none">
-                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <span class="nav-user-name" title="Operator Session">
+                    <button type="button" class="nav-user-name nav-user-btn" id="navUserBtn" onclick="openProfileView()" title="Открыть профиль пользователя">
                         <i class="fa-solid fa-shield-halved"></i>
                         <span id="navUsername">admin</span>
-                    </span>
+                    </button>
 
                     <a href="/logout" class="btn-logout" id="btnLogoutLink">
                         <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -144,7 +150,7 @@
                 </div>
             </div>
 
-            <div classnetwork-servers-list" id="networkServersList">
+            <div class="network-servers-list" id="networkServersList">
                 <div class="hub-loading-placeholder text-center text-muted py-5">
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-3 text-accent"></i>
                     <p>Discovering backend servers...</p>
@@ -365,95 +371,139 @@
                 </div>
             </div>
 
-            <div class="world-summary-strip">
-                <div class="summary-strip-item">
-                    <i class="fa-solid fa-cubes-stacked text-accent"></i>
-                    <span class="strip-label" data-i18n="label_loaded_chunks">Total Loaded Chunks:</span>
-                    <strong class="strip-val font-mono" id="valTotalChunks">0</strong>
-                </div>
-                <div class="summary-strip-divider"></div>
-                <div class="summary-strip-item">
-                    <i class="fa-solid fa-ghost text-purple"></i>
-                    <span class="strip-label" data-i18n="label_total_entities">Total Entities:</span>
-                    <strong class="strip-val font-mono" id="valTotalEntities">0</strong>
-                </div>
-            </div>
-
-            <div class="info-card processes-card">
-                <div class="processes-card-header">
-                    <div class="proc-header-left">
-                        <div class="card-icon green"><i class="fa-solid fa-users"></i></div>
-                        <div>
-                            <h3 data-i18n="table_players_title">Online Players Telemetry</h3>
-                            <span class="metric-sublabel" data-i18n="table_players_sub">Live player session status and network latency</span>
+            <!-- Server Dashboard Lower Section (Split into Console 2-span + Side 1-span) -->
+            <div class="server-bottom-split no-console" id="serverBottomSplit">
+                <!-- Server Console Card (visible when user has console_view permission) -->
+                <div class="server-console-card" id="serverConsoleCard" style="display: none;">
+                    <div class="console-card-header">
+                        <div class="console-header-left">
+                            <div class="card-icon dark-pill"><i class="fa-solid fa-terminal"></i></div>
+                            <div>
+                                <h3 data-i18n="console_title">Server Console &amp; Logs</h3>
+                                <span class="metric-sublabel" id="consoleSubtitle" data-i18n="console_sub">Real-time terminal stream from Paper backend</span>
+                            </div>
+                        </div>
+                        <div class="console-header-actions">
+                            <button type="button" class="btn-console-opt" onclick="clearConsoleDisplay()" title="Clear screen">
+                                <i class="fa-solid fa-eraser"></i>
+                            </button>
+                            <button type="button" class="btn-console-opt" id="btnConsoleAutoscroll" onclick="toggleConsoleAutoscroll()" title="Toggle Autoscroll">
+                                <i class="fa-solid fa-angles-down"></i>
+                            </button>
+                            <span class="badge-pill font-mono" id="consoleStatusBadge"><span class="pulse-dot-tiny"></span> Live</span>
                         </div>
                     </div>
-                    <div class="proc-header-right">
-                        <span class="badge-pill font-mono" id="valLastUpdated">Synced: Just now</span>
+                    <div class="console-terminal-body" id="serverConsoleLogs" role="log" aria-live="polite">
+                        <div class="console-line text-muted">[PineApple] Connecting to server console log stream...</div>
+                    </div>
+                    <div class="console-command-bar" id="consoleCommandBar" style="display: none;">
+                        <span class="console-prompt">&gt;&gt;&gt;</span>
+                        <input type="text" id="consoleCmdInput" class="console-input" placeholder="Type a server command (e.g. tps, say hello, op player)..." autocomplete="off" onkeydown="handleConsoleInputKeyDown(event)">
+                        <button type="button" class="btn-console-send" id="btnConsoleSend" onclick="sendConsoleCommand()" title="Send command">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
                     </div>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="styled-table" id="playersTable">
-                        <thead>
-                            <tr>
-                                <th style="width: 54px;" data-i18n="th_avatar">AVATAR</th>
-                                <th data-i18n="th_player_name">PLAYER</th>
-                                <th style="width: 160px;" data-i18n="th_world">WORLD</th>
-                                <th style="width: 140px;" data-i18n="th_gamemode">MODE</th>
-                                <th style="width: 110px; text-align: right;" data-i18n="th_ping">PING</th>
-                            </tr>
-                        </thead>
-                        <tbody id="playersTableBody">
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-3" data-i18n="no_players_online">No players currently connected</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="info-card processes-card mt-3">
-                <div class="processes-card-header">
-                    <div class="proc-header-left">
-                        <div class="card-icon dark-pill"><i class="fa-solid fa-earth-americas"></i></div>
-                        <div>
-                            <h3 data-i18n="table_worlds_title">Worlds & Chunk Generation</h3>
-                            <span class="metric-sublabel" data-i18n="table_worlds_sub">Loaded chunks and active entity counts per world</span>
+                <!-- Server Side Column (chunks summary + players table + worlds table) -->
+                <div class="server-side-column" id="serverSideColumn">
+                    <div class="world-summary-strip">
+                        <div class="summary-strip-item">
+                            <i class="fa-solid fa-cubes-stacked text-accent"></i>
+                            <span class="strip-label" data-i18n="label_loaded_chunks">Total Loaded Chunks:</span>
+                            <strong class="strip-val font-mono" id="valTotalChunks">0</strong>
+                        </div>
+                        <div class="summary-strip-divider"></div>
+                        <div class="summary-strip-item">
+                            <i class="fa-solid fa-ghost text-purple"></i>
+                            <span class="strip-label" data-i18n="label_total_entities">Total Entities:</span>
+                            <strong class="strip-val font-mono" id="valTotalEntities">0</strong>
                         </div>
                     </div>
-                </div>
 
-                <div class="table-responsive">
-                    <table class="styled-table" id="worldsTable">
-                        <thead>
-                            <tr>
-                                <th data-i18n="th_world_name">WORLD NAME</th>
-                                <th style="width: 160px;" data-i18n="th_environment">DIMENSION</th>
-                                <th style="width: 160px;" data-i18n="th_chunks">LOADED CHUNKS</th>
-                                <th style="width: 160px;" data-i18n="th_entities">ENTITIES</th>
-                            </tr>
-                        </thead>
-                        <tbody id="worldsTableBody">
-                            </tbody>
-                    </table>
+                    <div class="info-card processes-card">
+                        <div class="processes-card-header">
+                            <div class="proc-header-left">
+                                <div class="card-icon green"><i class="fa-solid fa-users"></i></div>
+                                <div>
+                                    <h3 data-i18n="table_players_title">Online Players Telemetry</h3>
+                                    <span class="metric-sublabel" data-i18n="table_players_sub">Live player session status and network latency</span>
+                                </div>
+                            </div>
+                            <div class="proc-header-right">
+                                <span class="badge-pill font-mono" id="valLastUpdated">Synced: Just now</span>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="styled-table" id="playersTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 44px;" data-i18n="th_avatar">AVATAR</th>
+                                        <th data-i18n="th_player_name">PLAYER</th>
+                                        <th style="width: 110px;" data-i18n="th_world">WORLD</th>
+                                        <th style="width: 90px;" data-i18n="th_gamemode">MODE</th>
+                                        <th style="width: 75px; text-align: right;" data-i18n="th_ping">PING</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="playersTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-3" data-i18n="no_players_online">No players currently connected</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="info-card processes-card mt-3">
+                        <div class="processes-card-header">
+                            <div class="proc-header-left">
+                                <div class="card-icon dark-pill"><i class="fa-solid fa-earth-americas"></i></div>
+                                <div>
+                                    <h3 data-i18n="table_worlds_title">Worlds &amp; Chunk Generation</h3>
+                                    <span class="metric-sublabel" data-i18n="table_worlds_sub">Loaded chunks and active entity counts per world</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="styled-table" id="worldsTable">
+                                <thead>
+                                    <tr>
+                                        <th data-i18n="th_world_name">WORLD NAME</th>
+                                        <th style="width: 110px;" data-i18n="th_environment">DIMENSION</th>
+                                        <th class="th-num text-right" style="width: 85px;" data-i18n="th_chunks">CHUNKS</th>
+                                        <th class="th-num text-right" style="width: 85px;" data-i18n="th_entities">ENTITIES</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="worldsTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
     </main>
 
     <div class="cinematic-curtain" id="cinematicCurtain" aria-hidden="true">
-    <div class="cinematic-curtain-bg"></div>
-    <div class="cinematic-curtain-brand">
-        <span class="cinematic-curtain-title" id="cinematicCurtainTitle">PineApple</span>
-        <span class="cinematic-curtain-sub" id="cinematicCurtainSub">Network Overview</span>
+        <div class="cinematic-curtain-bg"></div>
+        <div class="cinematic-curtain-brand">
+            <span class="cinematic-curtain-title" id="cinematicCurtainTitle">PineApple</span>
+            <span class="cinematic-curtain-sub" id="cinematicCurtainSub">Network Overview</span>
+        </div>
     </div>
-</div>
 </div>
 </div>
 
 <div id="toast-container" class="toast-container"></div>
 
-<script src="/static/js/main.js?v=4.3"></script>
+<script src="/static/js/i18n.js?v=5.2"></script>
+<script src="/static/js/utils.js?v=5.2"></script>
+<script src="/static/js/auth.js?v=5.2"></script>
+<script src="/static/js/profile.js?v=5.2"></script>
+<script src="/static/js/console.js?v=5.2"></script>
+<script src="/static/js/dashboard.js?v=5.2"></script>
+<script src="/static/js/main.js?v=5.2"></script>
 </body>
 </html>

@@ -15,11 +15,31 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SessionManager {
 
+    public static class SessionRecord {
+        private String username;
+        private long expiry;
+
+        public SessionRecord() {}
+
+        public SessionRecord(String username, long expiry) {
+            this.username = username;
+            this.expiry = expiry;
+        }
+
+        public String getUsername() {
+            return username != null ? username : "admin";
+        }
+
+        public long getExpiry() {
+            return expiry;
+        }
+    }
+
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Gson GSON = new Gson();
-    private static final Type SESSIONS_TYPE = new TypeToken<Map<String, Long>>() {}.getType();
+    private static final Type SESSIONS_TYPE = new TypeToken<Map<String, SessionRecord>>() {}.getType();
 
-    private final Map<String, Long> sessions = new ConcurrentHashMap<>();
+    private final Map<String, SessionRecord> sessions = new ConcurrentHashMap<>();
     private final Path storageFile;
 
     public SessionManager() {
@@ -36,25 +56,36 @@ public class SessionManager {
     }
 
     public String createSession(int durationDays) {
+        return createSession("admin", durationDays);
+    }
+
+    public String createSession(String username, int durationDays) {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         long expiry = System.currentTimeMillis() + (durationDays * 86_400_000L);
-        sessions.put(token, expiry);
+        String uname = (username != null && !username.isBlank()) ? username.trim() : "admin";
+        sessions.put(token, new SessionRecord(uname, expiry));
         save();
         return token;
     }
 
     public boolean isValid(String token) {
         if (token == null || token.isBlank()) return false;
-        Long expiry = sessions.get(token);
-        if (expiry == null) return false;
-        if (System.currentTimeMillis() > expiry) {
+        SessionRecord rec = sessions.get(token);
+        if (rec == null) return false;
+        if (System.currentTimeMillis() > rec.getExpiry()) {
             sessions.remove(token);
             save();
             return false;
         }
         return true;
+    }
+
+    public String getUsername(String token) {
+        if (!isValid(token)) return null;
+        SessionRecord rec = sessions.get(token);
+        return rec != null ? rec.getUsername() : "admin";
     }
 
     public void invalidate(String token) {
@@ -65,7 +96,7 @@ public class SessionManager {
 
     public void cleanup() {
         long now = System.currentTimeMillis();
-        boolean removed = sessions.entrySet().removeIf(entry -> now > entry.getValue());
+        boolean removed = sessions.entrySet().removeIf(entry -> now > entry.getValue().getExpiry());
         if (removed) {
             save();
         }
@@ -74,11 +105,11 @@ public class SessionManager {
     private synchronized void load() {
         if (storageFile == null || !Files.exists(storageFile)) return;
         try (Reader reader = Files.newBufferedReader(storageFile)) {
-            Map<String, Long> loaded = GSON.fromJson(reader, SESSIONS_TYPE);
+            Map<String, SessionRecord> loaded = GSON.fromJson(reader, SESSIONS_TYPE);
             if (loaded != null) {
                 long now = System.currentTimeMillis();
-                for (Map.Entry<String, Long> entry : loaded.entrySet()) {
-                    if (entry.getValue() != null && entry.getValue() > now) {
+                for (Map.Entry<String, SessionRecord> entry : loaded.entrySet()) {
+                    if (entry.getValue() != null && entry.getValue().getExpiry() > now) {
                         sessions.put(entry.getKey(), entry.getValue());
                     }
                 }

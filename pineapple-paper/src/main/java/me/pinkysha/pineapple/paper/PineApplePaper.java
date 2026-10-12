@@ -1,12 +1,16 @@
 package me.pinkysha.pineapple.paper;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import me.pinkysha.pineapple.paper.command.PineAppleCommand;
 import me.pinkysha.pineapple.paper.config.ConfigManager;
+import me.pinkysha.pineapple.paper.console.ConsoleLogManager;
 import me.pinkysha.pineapple.paper.metrics.StatsCollector;
+import me.pinkysha.pineapple.paper.permission.PermissionManager;
 import me.pinkysha.pineapple.paper.server.SessionManager;
 import me.pinkysha.pineapple.paper.server.WebServer;
-import org.bukkit.Bukkit;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -15,8 +19,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.awt.Desktop;
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -29,6 +33,8 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
     private ConfigManager configManager;
     private SessionManager sessionManager;
     private StatsCollector statsCollector;
+    private PermissionManager permissionManager;
+    private ConsoleLogManager consoleLogManager;
     private WebServer webServer;
     private HttpClient httpClient;
 
@@ -55,40 +61,44 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
         this.sessionManager = new SessionManager(getDataFolder().toPath());
         this.statsCollector = new StatsCollector(configManager);
         this.statsCollector.setCacheTtlMs(configManager.getCacheTtlMs());
+        this.permissionManager = new PermissionManager(this);
+        this.consoleLogManager = new ConsoleLogManager();
 
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(configManager.getProxyPushTimeoutMs()))
                 .build();
 
-        // Register outgoing plugin messaging channel
+        // Register plugin messaging outgoing channel
         this.registeredChannel = configManager.channel();
         getServer().getMessenger().registerOutgoingPluginChannel(this, registeredChannel);
 
         // Register event listener for immediate telemetry on player joins
         getServer().getPluginManager().registerEvents(this, this);
 
-        // 1. Initial snapshot on main thread
-        this.statsCollector.refreshBukkitSnapshot();
-        this.statsCollector.recordHistoryPoint();
+        // 1. Initial Bukkit snapshot (main thread)
+        statsCollector.refreshBukkitSnapshot();
 
-        // 2. Periodic Bukkit snapshot refresh every 20 ticks (1s) on main thread
-        this.metricsTask = getServer().getScheduler().runTaskTimer(this, statsCollector::refreshBukkitSnapshot, 20L, 20L);
+        // 2. Periodic Bukkit snapshot every 20 ticks (1s) on main thread
+        this.metricsTask = getServer().getScheduler().runTaskTimer(this, () -> {
+            statsCollector.refreshBukkitSnapshot();
+        }, 20L, 20L);
 
         // 3. Periodic telemetry sample & send every 50 ticks (2.5s) on main thread
         this.telemetrySendTask = getServer().getScheduler().runTaskTimer(this, this::sampleAndSendTelemetry, 50L, 50L);
 
-        // Standalone Web Server mode if enabled
-        if (configManager.isStandaloneWebServer()) {
-            File historyFile = new File(dataDir, "history.json");
-            this.statsCollector.loadHistoryFromFile(historyFile);
-            this.historySaveTask = getServer().getScheduler().runTaskTimerAsynchronously(this, this::saveHistorySync, 1200L, 1200L);
-            startWebServer();
-            if (configManager.autoOpenBrowser()) {
-                getServer().getScheduler().runTaskLaterAsynchronously(this, this::tryOpenBrowser, 40L);
-            }
+        // 4. Register commands
+        var cmd = getCommand("pineapple");
+        if (cmd != null) {
+            cmd.setExecutor(new PineAppleCommand(this));
         }
 
-        registerCommands();
+        // 5. Standalone web server mode
+        if (configManager.isStandaloneWebServer()) {
+            startWebServer();
+            this.historySaveTask = getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+                saveHistorySync();
+            }, 6000L, 6000L);
+        }
 
         getLogger().info("PineApple Paper Telemetry enabled for server '" + configManager.serverName() + "' on channel '" + registeredChannel + "'.");
     }
@@ -101,11 +111,23 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
             statsCollector.recordHistoryPoint();
             String payloadJson = statsCollector.buildStatsJson();
 
+            // Enrich payload with permissions and console logs
+            JsonObject root = JsonParser.parseString(payloadJson).getAsJsonObject();
+            root.add("permissions", permissionManager.getPermissionsJson());
+
+            JsonArray logsArr = new JsonArray();
+            for (String line : consoleLogManager.getRecentLogs()) {
+                logsArr.add(line);
+            }
+            root.add("logs", logsArr);
+
+            String fullPayload = root.toString();
+
             // 1. Asynchronous HTTP push to proxy (reliable even with 0 online players)
-            sendTelemetryHttp(payloadJson);
+            sendTelemetryHttp(fullPayload);
 
             // 2. Secondary dispatch across plugin messaging channel if players are online
-            byte[] bytes = payloadJson.getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = fullPayload.getBytes(StandardCharsets.UTF_8);
             if (!getServer().getOnlinePlayers().isEmpty()) {
                 Player player = getServer().getOnlinePlayers().iterator().next();
                 player.sendPluginMessage(this, registeredChannel, bytes);
@@ -141,7 +163,12 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
                 reqBuilder.header("Authorization", "Bearer " + token);
             }
 
-            httpClient.sendAsync(reqBuilder.build(), HttpResponse.BodyHandlers.discarding())
+            httpClient.sendAsync(reqBuilder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                    .thenAccept(res -> {
+                        if (res.statusCode() == 200) {
+                            handleProxyResponse(res.body());
+                        }
+                    })
                     .exceptionally(ex -> {
                         getLogger().fine("HTTP telemetry push failed: " + ex.getMessage());
                         return null;
@@ -149,6 +176,26 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
         } catch (Throwable t) {
             getLogger().fine("Failed to initiate HTTP telemetry push: " + t.getMessage());
         }
+    }
+
+    private void handleProxyResponse(String body) {
+        if (body == null || body.isBlank()) return;
+        try {
+            JsonObject obj = JsonParser.parseString(body).getAsJsonObject();
+            if (obj.has("pending_commands") && obj.get("pending_commands").isJsonArray()) {
+                JsonArray cmds = obj.getAsJsonArray("pending_commands");
+                for (JsonElement el : cmds) {
+                    String cmd = el.getAsString();
+                    if (!cmd.isBlank()) {
+                        getServer().getScheduler().runTask(this, () -> {
+                            getLogger().info("[PineApple] Executing web command: " + cmd);
+                            consoleLogManager.appendManual("> " + cmd);
+                            getServer().dispatchCommand(getServer().getConsoleSender(), cmd);
+                        });
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -163,79 +210,68 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
     private synchronized void startWebServer() {
         if (webServer != null) {
             webServer.stop();
+            webServer = null;
         }
 
         this.currentHost = configManager.host();
         this.currentPort = configManager.port();
 
         try {
-            webServer = new WebServer(configManager, currentHost, currentPort, statsCollector, sessionManager, getDataFolder().toPath());
-            webServer.start();
-        } catch (Exception e) {
-            getLogger().severe("Failed to bind Standalone Web Monitor on " + currentHost + ":" + currentPort + ": " + e.getMessage());
+            this.webServer = new WebServer(configManager, currentHost, currentPort, statsCollector, sessionManager, getDataFolder().toPath());
+            this.webServer.start();
+        } catch (IOException e) {
+            getLogger().severe("Could not start PineApple embedded WebServer: " + e.getMessage());
         }
     }
 
-    private void registerCommands() {
-        PluginCommand cmd = getCommand("pineapple");
-        if (cmd != null) {
-            PineAppleCommand executor = new PineAppleCommand(this);
-            cmd.setExecutor(executor);
-            cmd.setTabCompleter(executor);
-        }
-    }
-
-    public synchronized void reloadPlugin() {
+    public synchronized void reload() {
+        reloadConfig();
         configManager.reload();
-        statsCollector.setCacheTtlMs(configManager.getCacheTtlMs());
-        statsCollector.refreshBukkitSnapshot();
-        statsCollector.recordHistoryPoint();
+        permissionManager.reload();
 
-        String newChannel = configManager.channel();
-        if (!newChannel.equals(registeredChannel)) {
-            getServer().getMessenger().unregisterOutgoingPluginChannel(this, registeredChannel);
-            this.registeredChannel = newChannel;
+        if (statsCollector != null) {
+            statsCollector.setCacheTtlMs(configManager.getCacheTtlMs());
+        }
+
+        if (registeredChannel != null && !registeredChannel.equals(configManager.channel())) {
+            try {
+                getServer().getMessenger().unregisterOutgoingPluginChannel(this, registeredChannel);
+            } catch (Throwable ignored) {}
+            this.registeredChannel = configManager.channel();
             getServer().getMessenger().registerOutgoingPluginChannel(this, registeredChannel);
         }
 
-        if (configManager.isStandaloneWebServer()) {
-            saveHistorySync();
-            String newHost = configManager.host();
-            int newPort = configManager.port();
-            if (webServer == null || !newHost.equals(currentHost) || newPort != currentPort) {
-                startWebServer();
-            }
-        } else if (webServer != null) {
-            webServer.stop();
-            webServer = null;
-        }
-
-        if (configManager.isProxyHttpPushEnabled()) {
+        if (httpClient != null) {
             this.httpClient = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofMillis(configManager.getProxyPushTimeoutMs()))
                     .build();
         }
 
+        if (configManager.isStandaloneWebServer()) {
+            if (webServer == null || !currentHost.equals(configManager.host()) || currentPort != configManager.port()) {
+                startWebServer();
+            }
+        } else {
+            if (webServer != null) {
+                webServer.stop();
+                webServer = null;
+                getLogger().info("PineApple standalone WebServer stopped (proxy mode active).");
+            }
+        }
+
         sampleAndSendTelemetry();
+        getLogger().info("PineApple Paper configuration & permissions reloaded.");
+    }
+
+    public void reloadPlugin() {
+        reload();
     }
 
     public String webUrl() {
-        String displayHost = currentHost != null && currentHost.equals("0.0.0.0") ? "127.0.0.1" : (currentHost != null ? currentHost : "127.0.0.1");
-        return "http://" + displayHost + ":" + currentPort;
+        return "http://" + (currentHost != null ? currentHost : configManager.host()) + ":" + (currentPort > 0 ? currentPort : configManager.port());
     }
 
-    private void tryOpenBrowser() {
-        String url = "http://127.0.0.1:" + currentPort;
-        try {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                Desktop.getDesktop().browse(new URI(url));
-            } else {
-                Runtime.getRuntime().exec(new String[]{"xdg-open", url});
-            }
-        } catch (Throwable ignored) {}
-    }
-
-    private void saveHistorySync() {
+    public void saveHistorySync() {
         if (statsCollector != null) {
             statsCollector.saveHistoryToFile(new File(getDataFolder(), "history.json"));
         }
@@ -247,6 +283,14 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
 
     public StatsCollector statsCollector() {
         return statsCollector;
+    }
+
+    public PermissionManager getPermissionManager() {
+        return permissionManager;
+    }
+
+    public ConsoleLogManager getConsoleLogManager() {
+        return consoleLogManager;
     }
 
     @Override
@@ -276,6 +320,9 @@ public final class PineApplePaper extends JavaPlugin implements Listener {
         if (webServer != null) {
             webServer.stop();
             webServer = null;
+        }
+        if (consoleLogManager != null) {
+            consoleLogManager.shutdown();
         }
         getLogger().info("PineApple Paper Telemetry disabled.");
     }

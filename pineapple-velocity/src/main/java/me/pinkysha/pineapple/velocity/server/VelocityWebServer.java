@@ -8,22 +8,27 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import me.pinkysha.pineapple.velocity.config.VelocityConfig;
 import me.pinkysha.pineapple.velocity.telemetry.ServerTelemetryRegistry;
+import me.pinkysha.pineapple.velocity.telemetry.ServerTelemetryState;
+import me.pinkysha.pineapple.velocity.user.UserManager;
 import org.slf4j.Logger;
 
-import java.io.*;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 
 public class VelocityWebServer {
@@ -31,26 +36,38 @@ public class VelocityWebServer {
     private final VelocityConfig config;
     private final ServerTelemetryRegistry registry;
     private final SessionManager sessionManager;
+    private final UserManager userManager;
     private final Path dataDirectory;
     private final Logger logger;
-    private HttpServer server;
 
-    private final Map<String, CachedResource> resourceCache = new HashMap<>();
+    private HttpServer server;
+    private final Map<String, CachedResource> resourceCache = new ConcurrentHashMap<>();
 
     private record CachedResource(byte[] data, String contentType, String etag, long lastModified) {}
 
-    private static final String[] DEFAULT_LANGUAGES = {
-        "en", "ru", "ar", "zh", "fr", "es"
+        private static final String[] DEFAULT_LANGUAGES = {
+            "en", "ru", "zh", "fr", "es", "ar"
     };
 
-    public VelocityWebServer(VelocityConfig config, ServerTelemetryRegistry registry, SessionManager sessionManager, Logger logger) {
-        this(config, registry, sessionManager, null, logger);
+    private static final Map<String, String[]> LANG_META = new LinkedHashMap<>();
+    static {
+        LANG_META.put("en", new String[]{"English", "English", "gb"});
+        LANG_META.put("ru", new String[]{"Russian", "Русский", "ru"});
+        LANG_META.put("zh", new String[]{"Chinese", "简体中文", "cn"});
+        LANG_META.put("fr", new String[]{"French", "Français", "fr"});
+        LANG_META.put("es", new String[]{"Spanish", "Español", "es"});
+        LANG_META.put("ar", new String[]{"Arabic", "العربية", "sa"});
     }
 
     public VelocityWebServer(VelocityConfig config, ServerTelemetryRegistry registry, SessionManager sessionManager, Path dataDirectory, Logger logger) {
+        this(config, registry, sessionManager, new UserManager(dataDirectory != null ? dataDirectory : Path.of("."), config, logger), dataDirectory, logger);
+    }
+
+    public VelocityWebServer(VelocityConfig config, ServerTelemetryRegistry registry, SessionManager sessionManager, UserManager userManager, Path dataDirectory, Logger logger) {
         this.config = config;
         this.registry = registry;
         this.sessionManager = sessionManager;
+        this.userManager = userManager;
         this.dataDirectory = dataDirectory;
         this.logger = logger;
         extractDefaultWebAssets();
@@ -61,10 +78,23 @@ public class VelocityWebServer {
         if (dataDirectory == null) return;
         Path webDir = dataDirectory.resolve("web");
         String[] defaultFiles = {
-            "index.html",
-            "dashboard.html",
-            "css/style.css",
-            "js/main.js"
+                "index.html",
+                "dashboard.html",
+                "css/style.css",
+                "css/base.css",
+                "css/auth.css",
+                "css/components.css",
+                "css/dashboard.css",
+                "css/theme.css",
+                "css/profile.css",
+                "css/console.css",
+                "js/main.js",
+                "js/i18n.js",
+                "js/utils.js",
+                "js/auth.js",
+                "js/profile.js",
+                "js/console.js",
+                "js/dashboard.js"
         };
         for (String rel : defaultFiles) {
             Path target = webDir.resolve(rel);
@@ -118,10 +148,16 @@ public class VelocityWebServer {
         server.createContext("/login", new LoginHandler());
         server.createContext("/logout", new LogoutHandler());
         server.createContext("/dashboard", new DashboardHandler());
+        server.createContext("/profile", new ProfileHandler());
+
+        server.createContext("/api/me", new ApiMeHandler());
         server.createContext("/api/servers", new ApiServersHandler());
         server.createContext("/api/stats", new ApiStatsHandler());
         server.createContext("/api/history", new ApiHistoryHandler());
         server.createContext("/api/telemetry/push", new ApiTelemetryPushHandler());
+        server.createContext("/api/console/logs", new ApiConsoleLogsHandler());
+        server.createContext("/api/console/command", new ApiConsoleCommandHandler());
+        server.createContext("/api/password", new ApiPasswordHandler());
         server.createContext("/api/lang", new ApiLangHandler());
         server.createContext("/lang/", new StaticLangHandler());
         server.createContext("/static/", new StaticHandler());
@@ -142,17 +178,43 @@ public class VelocityWebServer {
     }
 
     private boolean isAuthenticated(HttpExchange exchange) {
-        if (!config.isAuthEnabled()) return true;
-        String cookieHeader = exchange.getRequestHeaders().getFirst("Cookie");
-        if (cookieHeader == null) return false;
+        if (!config.isAuthEnabled()) {
+            return true;
+        }
+        String token = getSessionToken(exchange);
+        return token != null && sessionManager.isValid(token);
+    }
 
+    /**
+     * Verifies that an incoming telemetry push carries the shared secret via
+     * "Authorization: Bearer &lt;secret&gt;". Uses a constant-time comparison.
+     * Returns false if no secret is configured, so unauthenticated pushes are rejected.
+     */
+    private boolean isTrustedTelemetrySource(HttpExchange exchange) {
+        String expected = config.getTelemetrySecret();
+        if (expected == null || expected.isBlank()) {
+            return false;
+        }
+        String header = exchange.getRequestHeaders().getFirst("Authorization");
+        if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return false;
+        }
+        String presented = header.substring(7).trim();
+        byte[] a = presented.getBytes(StandardCharsets.UTF_8);
+        byte[] b = expected.getBytes(StandardCharsets.UTF_8);
+        return MessageDigest.isEqual(a, b);
+    }
+
+    private String getSessionToken(HttpExchange exchange) {
+        String cookieHeader = exchange.getRequestHeaders().getFirst("Cookie");
+        if (cookieHeader == null) return null;
         for (String cookie : cookieHeader.split(";")) {
             String[] parts = cookie.trim().split("=", 2);
             if (parts.length == 2 && "pineapple_session".equals(parts[0])) {
-                return sessionManager.isValid(parts[1]);
+                return parts[1];
             }
         }
-        return false;
+        return null;
     }
 
     private void sendRedirect(HttpExchange exchange, String location) throws IOException {
@@ -175,6 +237,9 @@ public class VelocityWebServer {
         if (dataDirectory != null) {
             String rel = path.startsWith("/web/") ? path.substring("/web/".length())
                     : (path.startsWith("/") ? path.substring(1) : path);
+            if (rel.startsWith("static/")) {
+                rel = rel.substring("static/".length());
+            }
             Path externalFile = dataDirectory.resolve(rel);
             if (!Files.isRegularFile(externalFile) && !rel.startsWith("web/")) {
                 externalFile = dataDirectory.resolve("web").resolve(rel);
@@ -330,6 +395,17 @@ public class VelocityWebServer {
         }
     }
 
+    private class ProfileHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!isAuthenticated(exchange)) {
+                sendRedirect(exchange, "/");
+                return;
+            }
+            serveStatic(exchange, "/web/index.html", "text/html; charset=utf-8");
+        }
+    }
+
     private class LoginHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -355,17 +431,17 @@ public class VelocityWebServer {
                 boolean isAjax = "XMLHttpRequest".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Requested-With"))
                         || (contentType != null && contentType.contains("application/json"));
 
-                if (config.getUsername().equals(user) && config.getPassword().equals(pass)) {
+                if (userManager.verifyPassword(user, pass)) {
                     String cookieHeader;
                     if (remember) {
                         int days = Math.max(1, config.getRememberMeDays());
-                        String token = sessionManager.createSession(days);
+                        String token = sessionManager.createSession(user, days);
                         long maxAgeSec = (long) days * 86400L;
                         Instant expiryInstant = Instant.now().plus(Duration.ofDays(days));
                         String expiresFormatted = DateTimeFormatter.RFC_1123_DATE_TIME.format(expiryInstant.atZone(ZoneOffset.UTC));
                         cookieHeader = "pineapple_session=" + token + "; Path=/; Max-Age=" + maxAgeSec + "; Expires=" + expiresFormatted + "; HttpOnly; SameSite=Lax";
                     } else {
-                        String token = sessionManager.createSession(1);
+                        String token = sessionManager.createSession(user, 1);
                         cookieHeader = "pineapple_session=" + token + "; Path=/; HttpOnly; SameSite=Lax";
                     }
                     exchange.getResponseHeaders().set("Set-Cookie", cookieHeader);
@@ -389,17 +465,38 @@ public class VelocityWebServer {
     private class LogoutHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            String cookieHeader = exchange.getRequestHeaders().getFirst("Cookie");
-            if (cookieHeader != null) {
-                for (String cookie : cookieHeader.split(";")) {
-                    String[] parts = cookie.trim().split("=", 2);
-                    if (parts.length == 2 && "pineapple_session".equals(parts[0])) {
-                        sessionManager.invalidate(parts[1]);
-                    }
-                }
+            String token = getSessionToken(exchange);
+            if (token != null) {
+                sessionManager.invalidate(token);
             }
             exchange.getResponseHeaders().set("Set-Cookie", "pineapple_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax");
             sendRedirect(exchange, "/");
+        }
+    }
+
+    private class ApiMeHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!isAuthenticated(exchange)) {
+                sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
+                return;
+            }
+            String token = getSessionToken(exchange);
+            String username = sessionManager.getUsername(token);
+            if (username == null) username = "admin";
+            boolean isSuper = userManager.isSuperAdmin(username);
+
+            JsonObject root = new JsonObject();
+            root.addProperty("username", username);
+            root.addProperty("is_superadmin", isSuper);
+
+            JsonObject perms = new JsonObject();
+            for (ServerTelemetryState st : registry.getAllServers()) {
+                perms.add(st.getServerId(), st.getUserPermissions(username, isSuper));
+            }
+            root.add("permissions", perms);
+
+            sendJson(exchange, 200, root.toString());
         }
     }
 
@@ -449,6 +546,14 @@ public class VelocityWebServer {
                 return;
             }
 
+            // Telemetry carries per-user permissions and drains the pending-command
+            // queue, so only backend servers presenting the shared secret are trusted.
+            if (!isTrustedTelemetrySource(exchange)) {
+                logger.warn("Rejected unauthenticated telemetry push from {}", exchange.getRemoteAddress());
+                sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
+                return;
+            }
+
             try (InputStream in = exchange.getRequestBody()) {
                 String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
                 if (json.isBlank()) {
@@ -471,7 +576,18 @@ public class VelocityWebServer {
                     logger.info("Server '{}' connected via HTTP telemetry stream.", targetServer);
                 }
 
-                sendJson(exchange, 200, "{\"status\":\"ok\"}");
+                // Poll pending commands for this backend server
+                JsonObject resp = new JsonObject();
+                resp.addProperty("status", "ok");
+                JsonArray cmdsArr = new JsonArray();
+                registry.getServer(targetServer).ifPresent(st -> {
+                    for (String cmd : st.pollPendingCommands()) {
+                        cmdsArr.add(cmd);
+                    }
+                });
+                resp.add("pending_commands", cmdsArr);
+
+                sendJson(exchange, 200, resp.toString());
             } catch (Exception e) {
                 logger.warn("Error handling HTTP telemetry push: {}", e.getMessage());
                 sendJson(exchange, 500, "{\"error\":\"Internal error\"}");
@@ -479,69 +595,172 @@ public class VelocityWebServer {
         }
     }
 
-    private static final Map<String, String[]> LANG_META = new LinkedHashMap<>();
-    static {
-        LANG_META.put("en", new String[]{"English", "English", "gb"});
-        LANG_META.put("ru", new String[]{"Russian", "Русский", "ru"});
-        LANG_META.put("ar", new String[]{"Arabic", "العربية", "sa"});
-        LANG_META.put("zh", new String[]{"Chinese", "简体中文", "cn"});
-        LANG_META.put("fr", new String[]{"French", "Français", "fr"});
-        LANG_META.put("es", new String[]{"Spanish", "Español", "es"});
-        LANG_META.put("de", new String[]{"German", "Deutsch", "de"});
-        LANG_META.put("ja", new String[]{"Japanese", "日本語", "jp"});
-        LANG_META.put("pt", new String[]{"Portuguese", "Português", "pt"});
-        LANG_META.put("it", new String[]{"Italian", "Italiano", "it"});
-        LANG_META.put("pl", new String[]{"Polish", "Polski", "pl"});
-        LANG_META.put("ko", new String[]{"Korean", "한국어", "kr"});
-        LANG_META.put("tr", new String[]{"Turkish", "Türkçe", "tr"});
+    private class ApiConsoleLogsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!isAuthenticated(exchange)) {
+                sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
+                return;
+            }
+            Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
+            String serverId = params.get("server");
+            if (serverId == null || serverId.isBlank()) {
+                sendJson(exchange, 400, "{\"error\":\"Missing server query parameter\"}");
+                return;
+            }
+
+            String token = getSessionToken(exchange);
+            String username = sessionManager.getUsername(token);
+            if (username == null) username = "admin";
+            boolean isSuper = userManager.isSuperAdmin(username);
+
+            Optional<ServerTelemetryState> stOpt = registry.getServer(serverId);
+            if (stOpt.isEmpty()) {
+                sendJson(exchange, 404, "{\"error\":\"Server not found\"}");
+                return;
+            }
+
+            ServerTelemetryState state = stOpt.get();
+            if (!state.hasPermission(username, "console_view", isSuper)) {
+                sendJson(exchange, 403, "{\"error\":\"Access denied: missing console_view permission\"}");
+                return;
+            }
+
+            JsonObject resp = new JsonObject();
+            resp.addProperty("status", "ok");
+            resp.addProperty("server", serverId);
+            JsonArray arr = new JsonArray();
+            for (String line : state.getConsoleLogs()) {
+                arr.add(line);
+            }
+            resp.add("logs", arr);
+            sendJson(exchange, 200, resp.toString());
+        }
+    }
+
+    private class ApiConsoleCommandHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!isAuthenticated(exchange)) {
+                sendJson(exchange, 401, "{\"error\":\"Unauthorized\"}");
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJson(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                return;
+            }
+
+            String token = getSessionToken(exchange);
+            String username = sessionManager.getUsername(token);
+            if (username == null) username = "admin";
+            boolean isSuper = userManager.isSuperAdmin(username);
+
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+            Map<String, String> params = parseRequestBody(body, contentType);
+
+            String serverId = params.getOrDefault("server", params.getOrDefault("server_id", "")).trim();
+            String command = params.getOrDefault("command", params.getOrDefault("cmd", "")).trim();
+
+            if (serverId.isEmpty() || command.isEmpty()) {
+                sendJson(exchange, 400, "{\"error\":\"Missing server or command parameter\"}");
+                return;
+            }
+
+            Optional<ServerTelemetryState> stOpt = registry.getServer(serverId);
+            if (stOpt.isEmpty()) {
+                sendJson(exchange, 404, "{\"error\":\"Server not found\"}");
+                return;
+            }
+
+            ServerTelemetryState state = stOpt.get();
+            if (!state.hasPermission(username, "console_command", isSuper)) {
+                sendJson(exchange, 403, "{\"error\":\"Access denied: missing console_command permission\"}");
+                return;
+            }
+
+            state.queueCommand(command);
+            String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+            state.addManualLog("[" + time + " " + username + "] > " + command);
+
+            JsonObject resp = new JsonObject();
+            resp.addProperty("status", "ok");
+            resp.addProperty("message", "Command dispatched to server");
+            sendJson(exchange, 200, resp.toString());
+        }
+    }
+
+    private class ApiPasswordHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!isAuthenticated(exchange)) {
+                sendJson(exchange, 401, "{\"success\":false,\"message\":\"Unauthorized\"}");
+                return;
+            }
+
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJson(exchange, 405, "{\"success\":false,\"message\":\"Method Not Allowed\"}");
+                return;
+            }
+
+            String token = getSessionToken(exchange);
+            String username = sessionManager.getUsername(token);
+            if (username == null) username = "admin";
+
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+            Map<String, String> params = parseRequestBody(body, contentType);
+
+            String oldPassword = params.getOrDefault("old_password", params.getOrDefault("current_password", "")).trim();
+            String newPassword = params.getOrDefault("new_password", params.getOrDefault("password", "")).trim();
+
+            if (newPassword.isEmpty()) {
+                sendJson(exchange, 400, "{\"success\":false,\"message\":\"New password cannot be empty\"}");
+                return;
+            }
+
+            if (newPassword.length() < 4) {
+                sendJson(exchange, 400, "{\"success\":false,\"message\":\"Password must be at least 4 characters long\"}");
+                return;
+            }
+
+            if (oldPassword.isEmpty()) {
+                sendJson(exchange, 400, "{\"success\":false,\"message\":\"Current password is required\"}");
+                return;
+            }
+            if (!userManager.verifyPassword(username, oldPassword)) {
+                sendJson(exchange, 403, "{\"success\":false,\"message\":\"Current password is incorrect\"}");
+                return;
+            }
+
+            boolean ok = userManager.updatePassword(username, newPassword);
+            if (ok) {
+                sendJson(exchange, 200, "{\"success\":true,\"message\":\"Password successfully updated with new salt!\"}");
+            } else {
+                sendJson(exchange, 500, "{\"success\":false,\"message\":\"Failed to update password\"}");
+            }
+        }
     }
 
     private class ApiLangHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
-            String code = params.get("code");
-
-            if (code != null && !code.isBlank()) {
-                serveLangPack(exchange, code.trim().toLowerCase());
-                return;
-            }
-
             JsonObject root = new JsonObject();
-            root.addProperty("default", config.getDefaultLanguage());
-
-            Set<String> discoveredCodes = new LinkedHashSet<>();
-            Collections.addAll(discoveredCodes, DEFAULT_LANGUAGES);
-
-            if (dataDirectory != null) {
-                Path langDir = dataDirectory.resolve("lang");
-                if (Files.isDirectory(langDir)) {
-                    try (DirectoryStream<Path> stream = Files.newDirectoryStream(langDir, "*.json")) {
-                        for (Path p : stream) {
-                            String fName = p.getFileName().toString();
-                            String c = fName.substring(0, fName.length() - 5).toLowerCase();
-                            discoveredCodes.add(c);
-                        }
-                    } catch (Exception ignored) {}
-                }
-            }
+            root.addProperty("current", config.getDefaultLanguage());
 
             JsonArray arr = new JsonArray();
-            for (String c : discoveredCodes) {
+            for (String c : DEFAULT_LANGUAGES) {
+                String[] meta = LANG_META.get(c);
+                if (meta == null) {
+                    continue;
+                }
                 JsonObject item = new JsonObject();
                 item.addProperty("code", c);
-                String[] meta = LANG_META.get(c);
-                if (meta != null) {
-                    item.addProperty("name", meta[0]);
-                    item.addProperty("native", meta[1]);
-                    item.addProperty("flag", meta[2]);
-                    if ("ar".equals(c)) {
-                        item.addProperty("rtl", true);
-                    }
-                } else {
-                    item.addProperty("name", c.toUpperCase());
-                    item.addProperty("native", c.toUpperCase());
-                    item.addProperty("flag", c);
+                item.addProperty("name", meta[0]);
+                item.addProperty("native", meta[1]);
+                item.addProperty("flag", meta[2]);
+                if ("ar".equals(c)) {
+                    item.addProperty("rtl", true);
                 }
                 arr.add(item);
             }
@@ -594,8 +813,7 @@ public class VelocityWebServer {
                     return;
                 }
             }
-            exchange.sendResponseHeaders(404, -1);
-            exchange.close();
+            sendJson(exchange, 404, "{\"error\":\"File not found\"}");
         }
     }
 
@@ -606,32 +824,24 @@ public class VelocityWebServer {
             if (path.startsWith("/static/")) {
                 path = path.substring(7);
             }
+            String rel = path.startsWith("/") ? path.substring(1) : path;
+            String resourcePath = "/web/" + rel;
 
             String contentType = "text/plain";
-            if (path.endsWith(".css")) contentType = "text/css; charset=utf-8";
-            else if (path.endsWith(".js")) contentType = "application/javascript; charset=utf-8";
-            else if (path.endsWith(".svg")) contentType = "image/svg+xml";
-            else if (path.endsWith(".png")) contentType = "image/png";
-            else if (path.endsWith(".woff2")) contentType = "font/woff2";
-            else if (path.endsWith(".woff")) contentType = "font/woff";
-            else if (path.endsWith(".ttf")) contentType = "font/ttf";
-            else if (path.endsWith(".ico")) contentType = "image/x-icon";
-            else if (path.endsWith(".json")) contentType = "application/json; charset=utf-8";
+            if (rel.endsWith(".css")) contentType = "text/css; charset=utf-8";
+            else if (rel.endsWith(".js")) contentType = "application/javascript; charset=utf-8";
+            else if (rel.endsWith(".svg")) contentType = "image/svg+xml";
+            else if (rel.endsWith(".png")) contentType = "image/png";
+            else if (rel.endsWith(".json")) contentType = "application/json; charset=utf-8";
 
-            serveStatic(exchange, "/web" + (path.startsWith("/") ? path : "/" + path), contentType);
+            serveStatic(exchange, resourcePath, contentType);
         }
     }
 
     private class FaviconHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            CachedResource res = loadResource("/web/favicon.ico", "image/x-icon");
-            if (res != null) {
-                serveStatic(exchange, "/web/favicon.ico", "image/x-icon");
-            } else {
-                exchange.sendResponseHeaders(204, -1);
-                exchange.close();
-            }
+            serveStatic(exchange, "/web/favicon.ico", "image/x-icon");
         }
     }
 }

@@ -8,13 +8,28 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/style.css?v=4.3">
+    <link rel="stylesheet" href="/static/css/base.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/auth.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/components.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/theme.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/profile.css?v=5.2">
+    <link rel="stylesheet" href="/static/css/console.css?v=5.2">
     <script>
         (function() {
             var theme = localStorage.getItem('pineapple_theme') || 
                 (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             if (theme === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
+            }
+            var isProfile = window.location.pathname === '/profile' || 
+                            window.location.search.includes('view=profile') ||
+                            sessionStorage.getItem('pineapple_reverse_profile') === 'true';
+            if (isProfile) {
+                document.documentElement.classList.add('profile-view-active');
+                if (sessionStorage.getItem('pineapple_reverse_profile') === 'true') {
+                    document.documentElement.classList.add('auth-transition-active', 'profile-reverse-active', 'profile-entering-root');
+                }
             }
         })();
     </script>
@@ -27,7 +42,7 @@
         </button>
         <div class="lang-dropdown-wrapper" id="langDropdownWrapperAuth">
             <button type="button" class="lang-switcher-btn" id="langDropdownBtnAuth" onclick="toggleLanguageDropdown(event, 'Auth')" aria-haspopup="true" aria-expanded="false" title="Select Language">
-                <span class="lang-flag-badge" id="currentLangFlagAuth"></span>
+                <span class="lang-flag-badge" id="currentLangFlagAuth"><svg class="flag-svg" viewBox="0 0 60 45" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 h60 v45 H0 z" fill="#012169"/><path d="M0 0 L60 45 M60 0 L0 45" stroke="#ffffff" stroke-width="8"/><path d="M0 0 L60 45 M60 0 L0 45" stroke="#C8102E" stroke-width="4.8"/><path d="M30 0 v45 M0 22.5 h60" stroke="#ffffff" stroke-width="14"/><path d="M30 0 v45 M0 22.5 h60" stroke="#C8102E" stroke-width="8.4"/></svg></span>
                 <span class="lang-code-text" id="currentLangCodeAuth">EN</span>
                 <i class="fa-solid fa-chevron-down lang-chevron-icon"></i>
             </button>
@@ -36,7 +51,7 @@
                     <span data-i18n="lang_select_title">Select Language</span>
                 </div>
                 <div class="lang-dropdown-list" id="langDropdownListAuth" role="none">
-                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -48,7 +63,9 @@
 
         <section class="hero-curved-section" id="heroSection">
             <div class="curved-backdrop"></div>
-            <div class="hero-content" id="heroContent">
+            
+            <!-- Auth Hero Content (for Login) -->
+            <div class="hero-content hero-auth-content" id="heroAuthContent">
                 <div class="brand-badge hero-fade-elem">
                     <i class="fa-solid fa-cube brand-icon-small"></i>
                     <span data-i18n="hero_badge">Paper 1.21.4 Monitor</span>
@@ -67,10 +84,38 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Profile Hero Content (for Profile View) -->
+            <div class="hero-content hero-profile-content" id="heroProfileContent" style="display: none;">
+                <div class="brand-badge hero-fade-elem">
+                    <i class="fa-solid fa-user-shield brand-icon-small"></i>
+                    <span data-i18n="profile_badge">User Profile</span>
+                </div>
+                <h1 class="brand-title" id="profileBrandTitle">Профиль</h1>
+                <p class="brand-tagline hero-fade-elem" data-i18n="profile_tagline">Управление сессией пользователя, смена пароля и матрица уровней доступа сети.</p>
+                
+                <div class="profile-hero-status-cards hero-fade-elem">
+                    <div class="profile-status-card">
+                        <div class="status-card-icon"><i class="fa-solid fa-id-badge"></i></div>
+                        <div class="status-card-info">
+                            <span class="status-card-lbl" data-i18n="profile_status_user">Пользователь</span>
+                            <strong class="status-card-val font-mono" id="profileHeroUser">admin</strong>
+                        </div>
+                    </div>
+                    <div class="profile-status-card">
+                        <div class="status-card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                        <div class="status-card-info">
+                            <span class="status-card-lbl" data-i18n="profile_status_role">Привилегии</span>
+                            <strong class="status-card-val" id="profileHeroRole">Пользователь</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section class="auth-section" id="authSection">
-            <div class="auth-container">
+            <!-- Auth Container (Login View) -->
+            <div class="auth-container auth-view-container" id="authViewContainer">
                 <div class="auth-header">
                     <span class="auth-subtitle" data-i18n="auth_subtitle">Paper Console Access</span>
                     <h2 class="auth-main-title" data-i18n="auth_title">Server Authentication</h2>
@@ -80,7 +125,7 @@
                     <div class="auth-card-pane active" id="loginPane">
                         <form action="/login" method="POST" class="auth-form" id="loginForm" onsubmit="handleLoginSubmit(event)">
                             <div class="input-group">
-                                <label for="login_user" data-i18n="label_login">Operator Username</label>
+                                <label for="login_user" data-i18n="label_login">Username</label>
                                 <div class="input-wrapper">
                                     <i class="fa-regular fa-user input-icon"></i>
                                     <input type="text" id="login_user" name="login" placeholder="e.g. admin" data-i18n-placeholder="placeholder_login" required autocomplete="username" value="admin">
@@ -90,7 +135,7 @@
                             <div class="input-group">
                                 <div class="label-with-link">
                                     <label for="login_pass" data-i18n="label_password">Password</label>
-                                    <span class="config-hint-badge" title="Configured in plugins/PineAppleMonitor/config.yml">config.yml</span>
+                                    <span class="config-hint-badge" title="Configured in users.json or config.properties">users.json</span>
                                 </div>
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-lock input-icon"></i>
@@ -122,8 +167,87 @@
                 <div class="host-config-card">
                     <div class="host-config-icon"><i class="fa-solid fa-terminal"></i></div>
                     <div class="host-config-text">
-                        <span class="host-config-title" data-i18n="host_config_title">Paper Server Config</span>
-                        <p data-i18n="host_config_desc">Credentials and network options are in <code>plugins/PineAppleMonitor/config.yml</code>.</p>
+                        <span class="host-config-title" data-i18n="host_config_title">Network Access</span>
+                        <p data-i18n="host_config_desc">Credentials are managed via <code>users.json</code> and backend <code>permissions.json</code>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Container (Profile View) -->
+            <div class="auth-container profile-view-container" id="profileViewContainer" style="display: none;">
+                <div class="auth-header">
+                    <span class="auth-subtitle" data-i18n="profile_subtitle">Управление сессией</span>
+                    <h2 class="auth-main-title" data-i18n="profile_title">Профиль пользователя</h2>
+                </div>
+
+                <div class="profile-card">
+                    <div class="profile-user-summary">
+                        <div class="profile-avatar-circle">
+                            <i class="fa-solid fa-user-gear"></i>
+                        </div>
+                        <div class="profile-user-details">
+                            <div class="profile-name-row">
+                                <strong id="profileUsernameVal" class="profile-user-heading">admin</strong>
+                                <span class="profile-role-tag" id="profileRoleTag">Пользователь</span>
+                            </div>
+                            <span class="profile-session-info" id="profileSessionInfo"><i class="fa-solid fa-circle-check text-green"></i> Сессия активна</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-section-card">
+                        <div class="profile-section-header">
+                            <i class="fa-solid fa-key"></i>
+                            <h3 data-i18n="profile_change_password">Поменять пароль</h3>
+                        </div>
+                        <form id="profileChangePasswordForm" onsubmit="handleProfilePasswordSubmit(event)">
+                            <div class="input-group">
+                                <label for="profile_old_password" data-i18n="label_old_password">Текущий пароль</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-lock input-icon"></i>
+                                    <input type="password" id="profile_old_password" name="old_password" placeholder="Введите текущий пароль" autocomplete="current-password">
+                                    <button type="button" class="toggle-password" onclick="togglePasswordVisibility('profile_old_password', this)" aria-label="Show/Hide">
+                                        <i class="fa-regular fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="profile_new_password" data-i18n="label_new_password">Новый пароль</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-shield-halved input-icon"></i>
+                                    <input type="password" id="profile_new_password" name="new_password" placeholder="Минимум 4 символа" required autocomplete="new-password">
+                                    <button type="button" class="toggle-password" onclick="togglePasswordVisibility('profile_new_password', this)" aria-label="Show/Hide">
+                                        <i class="fa-regular fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-action-group">
+                                <button type="submit" class="btn-primary-action btn-sm btn-glow ripple-effect" id="profileSavePassBtn">
+                                    <span class="btn-text" data-i18n="btn_save_password">Сохранить пароль</span>
+                                    <span class="btn-icon"><i class="fa-solid fa-floppy-disk"></i></span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="profile-section-card">
+                        <div class="profile-section-header">
+                            <i class="fa-solid fa-shield-virus"></i>
+                            <h3 data-i18n="profile_permissions">Права доступа</h3>
+                        </div>
+                        <div class="profile-perms-grid" id="profilePermsGrid">
+                            <div class="text-muted text-center py-2"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка прав...</div>
+                        </div>
+                    </div>
+
+                    <div class="profile-nav-buttons">
+                        <button type="button" class="btn-primary-action btn-glow ripple-effect" id="btnProfileToDashboard" onclick="returnToDashboardFromProfile()">
+                            <span class="btn-icon"><i class="fa-solid fa-gauge-high"></i></span>
+                            <span class="btn-text" data-i18n="btn_to_dashboard">В дешборд</span>
+                        </button>
+                        <button type="button" class="btn-secondary-action btn-profile-logout" id="btnProfileLogout" onclick="handleSeamlessLogout()">
+                            <span class="btn-icon"><i class="fa-solid fa-arrow-right-from-bracket"></i></span>
+                            <span class="btn-text" data-i18n="btn_logout">Выйти</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -132,6 +256,12 @@
 </div>
 
 <div id="toast-container" class="toast-container"></div>
-<script src="/static/js/main.js?v=4.3"></script>
+<script src="/static/js/i18n.js?v=5.2"></script>
+<script src="/static/js/utils.js?v=5.2"></script>
+<script src="/static/js/auth.js?v=5.2"></script>
+<script src="/static/js/profile.js?v=5.2"></script>
+<script src="/static/js/console.js?v=5.2"></script>
+<script src="/static/js/dashboard.js?v=5.2"></script>
+<script src="/static/js/main.js?v=5.2"></script>
 </body>
 </html>

@@ -3,7 +3,6 @@
   "hero_tagline": "Télémétrie Minecraft et moniteur de ressources en temps réel.",
   "hero_feat_1": "TPS et MSPT en temps réel",
   "hero_feat_2": "JVM Heap et CPU de l'hôte",
-
   "auth_subtitle": "Accès Console Paper",
   "auth_title": "Authentification Serveur",
   "label_login": "Nom d'utilisateur",
@@ -12,10 +11,8 @@
   "placeholder_password": "Entrez le mot de passe",
   "label_remember_me": "Mémoriser cette session",
   "btn_submit_login": "Accéder au Moniteur",
-
   "host_config_title": "Configuration Serveur Paper",
   "host_config_desc": "Identifiants et options réseau dans plugins/PineAppleMonitor/config.yml.",
-
   "nav_logout": "Déconnexion",
   "dash_server_title": "Serveur Minecraft :",
   "dash_online_players": "Joueurs :",
@@ -25,7 +22,6 @@
   "btn_pause": "Mettre en pause",
   "btn_resume": "Reprendre",
   "btn_refresh": "Actualiser",
-
   "card_tps_title": "TPS du Serveur",
   "label_tps_breakdown": "TPS (1m, 5m, 15m) :",
   "label_tick_health": "Santé du Tick :",
@@ -33,17 +29,14 @@
   "time_1m": "1 min",
   "time_30m": "30 min",
   "time_1h": "1 heure",
-
   "card_ram_title": "Mémoire JVM Heap",
   "label_heap_committed": "Heap alloué :",
   "label_system_ram": "Mémoire système :",
-
   "card_cpu_title": "Charge CPU",
   "label_process_cpu": "CPU Processus JVM :",
   "label_system_cpu": "CPU Système total :",
   "label_loaded_chunks": "Total Chunks chargés :",
   "label_total_entities": "Total Entités :",
-
   "table_players_title": "Télémétrie des Joueurs",
   "table_players_sub": "État des sessions et latence réseau en direct",
   "th_avatar": "AVATAR",
@@ -52,14 +45,12 @@
   "th_gamemode": "MODE",
   "th_ping": "PING",
   "no_players_online": "Aucun joueur connecté",
-
   "table_worlds_title": "Mondes et Génération de Chunks",
   "table_worlds_sub": "Chunks chargés et entités actives par monde",
   "th_world_name": "NOM DU MONDE",
   "th_environment": "DIMENSION",
-  "th_chunks": "CHUNKS CHARGÉS",
+  "th_chunks": "CHUNKS",
   "th_entities": "ENTITÉS",
-
   "chart_collecting_data": "Collecte des données...",
   "chart_waiting_history": "En attente de l'historique...",
   "toast_welcome_back": "Bienvenue sur le Moniteur Paper, {user} !",
@@ -78,5 +69,19 @@
   "hub_section_title": "Serveurs du Réseau",
   "hub_section_sub": "Sélectionnez un serveur pour afficher la télémétrie en temps réel, les cartes 3D et les joueurs",
   "lang_select_title": "Choisir la langue",
-  "lang_search_placeholder": "Rechercher une langue..."
+  "lang_search_placeholder": "Rechercher une langue...",
+  "profile_badge": "Profil Utilisateur",
+  "profile_tagline": "Gestion de session, modification du mot de passe et matrice de droits d'accès.",
+  "profile_status_user": "Utilisateur",
+  "profile_status_role": "Privilèges",
+  "profile_subtitle": "Gestion de Session",
+  "profile_title": "Profil Utilisateur",
+  "profile_change_password": "Changer le mot de passe",
+  "label_old_password": "Mot de passe actuel",
+  "label_new_password": "Nouveau mot de passe",
+  "btn_save_password": "Enregistrer le mot de passe",
+  "profile_permissions": "Droits d'accès",
+  "btn_to_dashboard": "Au Tableau de bord",
+  "console_title": "Console et Journaux Serveur",
+  "console_sub": "Flux de terminal en temps réel du serveur Minecraft"
 }

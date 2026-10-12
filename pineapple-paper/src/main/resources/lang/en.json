@@ -3,7 +3,6 @@
   "hero_tagline": "Real-time Minecraft telemetry and resource monitor.",
   "hero_feat_1": "Real-time TPS & MSPT",
   "hero_feat_2": "JVM Heap & Host CPU",
-
   "auth_subtitle": "Paper Console Access",
   "auth_title": "Server Authentication",
   "label_login": "Operator Username",
@@ -12,10 +11,8 @@
   "placeholder_password": "Enter password",
   "label_remember_me": "Remember this session",
   "btn_submit_login": "Access Monitor",
-
   "host_config_title": "Paper Server Config",
   "host_config_desc": "Credentials and network options are in plugins/PineAppleMonitor/config.yml.",
-
   "nav_logout": "Sign Out",
   "dash_server_title": "Minecraft Server:",
   "dash_online_players": "Players:",
@@ -25,7 +22,6 @@
   "btn_pause": "Pause Stream",
   "btn_resume": "Resume Stream",
   "btn_refresh": "Refresh Now",
-
   "card_tps_title": "Server TPS",
   "label_tps_breakdown": "TPS (1m, 5m, 15m):",
   "label_tick_health": "Tick Health:",
@@ -33,17 +29,14 @@
   "time_1m": "1 min",
   "time_30m": "30 min",
   "time_1h": "1 hour",
-
   "card_ram_title": "JVM Heap Memory",
   "label_heap_committed": "Allocated Heap:",
   "label_system_ram": "Host Memory:",
-
   "card_cpu_title": "CPU Load",
   "label_process_cpu": "JVM Process CPU:",
   "label_system_cpu": "Host System Total:",
   "label_loaded_chunks": "Total Loaded Chunks:",
   "label_total_entities": "Total Entities:",
-
   "table_players_title": "Online Players Telemetry",
   "table_players_sub": "Live player session status and network latency",
   "th_avatar": "AVATAR",
@@ -52,14 +45,12 @@
   "th_gamemode": "MODE",
   "th_ping": "PING",
   "no_players_online": "No players currently connected",
-
   "table_worlds_title": "Worlds & Chunk Generation",
   "table_worlds_sub": "Loaded chunks and active entity counts per world",
   "th_world_name": "WORLD NAME",
   "th_environment": "DIMENSION",
-  "th_chunks": "LOADED CHUNKS",
+  "th_chunks": "CHUNKS",
   "th_entities": "ENTITIES",
-
   "chart_collecting_data": "Collecting telemetry data...",
   "chart_waiting_history": "Waiting for server history...",
   "toast_welcome_back": "Welcome to Paper Monitor, {user}!",
@@ -78,5 +69,19 @@
   "hub_section_title": "Network Servers",
   "hub_section_sub": "Select a server to view real-time performance telemetry, 3D flippable cards, and player activity",
   "lang_select_title": "Select Language",
-  "lang_search_placeholder": "Search language..."
+  "lang_search_placeholder": "Search language...",
+  "profile_badge": "User Profile",
+  "profile_tagline": "User session management, credential security, and permission roles.",
+  "profile_status_user": "User",
+  "profile_status_role": "Privileges",
+  "profile_subtitle": "Session Management",
+  "profile_title": "User Profile",
+  "profile_change_password": "Change Password",
+  "label_old_password": "Current Password",
+  "label_new_password": "New Password",
+  "btn_save_password": "Save Password",
+  "profile_permissions": "Access Rights",
+  "btn_to_dashboard": "To Dashboard",
+  "console_title": "Server Console & Logs",
+  "console_sub": "Real-time streaming terminal output from Minecraft server"
 }

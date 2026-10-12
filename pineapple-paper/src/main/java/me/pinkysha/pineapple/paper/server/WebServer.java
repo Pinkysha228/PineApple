@@ -48,25 +48,18 @@ public class WebServer {
 
     private static final String COOKIE_NAME = "pmonitor_session";
 
-    private static final String[] DEFAULT_LANGUAGES = {
-        "en", "ru", "ar", "zh", "fr", "es"
+        private static final String[] DEFAULT_LANGUAGES = {
+            "en", "ru", "zh", "fr", "es", "ar"
     };
 
     private static final Map<String, String[]> LANG_META = new LinkedHashMap<>();
     static {
         LANG_META.put("en", new String[]{"English", "English", "gb"});
         LANG_META.put("ru", new String[]{"Russian", "Русский", "ru"});
-        LANG_META.put("ar", new String[]{"Arabic", "العربية", "sa"});
         LANG_META.put("zh", new String[]{"Chinese", "简体中文", "cn"});
         LANG_META.put("fr", new String[]{"French", "Français", "fr"});
         LANG_META.put("es", new String[]{"Spanish", "Español", "es"});
-        LANG_META.put("de", new String[]{"German", "Deutsch", "de"});
-        LANG_META.put("ja", new String[]{"Japanese", "日本語", "jp"});
-        LANG_META.put("pt", new String[]{"Portuguese", "Português", "pt"});
-        LANG_META.put("it", new String[]{"Italian", "Italiano", "it"});
-        LANG_META.put("pl", new String[]{"Polish", "Polski", "pl"});
-        LANG_META.put("ko", new String[]{"Korean", "한국어", "kr"});
-        LANG_META.put("tr", new String[]{"Turkish", "Türkçe", "tr"});
+        LANG_META.put("ar", new String[]{"Arabic", "العربية", "sa"});
     }
 
     public WebServer(MonitorConfig config, String host, int port, StatsCollector statsCollector, SessionManager sessionManager) {
@@ -91,7 +84,20 @@ public class WebServer {
             "index.html",
             "dashboard.html",
             "css/style.css",
-            "js/main.js"
+            "css/base.css",
+            "css/auth.css",
+            "css/components.css",
+            "css/dashboard.css",
+            "css/theme.css",
+            "css/profile.css",
+            "css/console.css",
+            "js/main.js",
+            "js/i18n.js",
+            "js/utils.js",
+            "js/auth.js",
+            "js/profile.js",
+            "js/console.js",
+            "js/dashboard.js"
         };
         for (String rel : defaultFiles) {
             Path target = webDir.resolve(rel);
@@ -239,6 +245,8 @@ public class WebServer {
         server.createContext("/login", new LoginHandler());
         server.createContext("/logout", new LogoutHandler());
         server.createContext("/dashboard", new DashboardHandler());
+        server.createContext("/profile", new ProfileHandler());
+        server.createContext("/api/me", new ApiMeHandler());
         server.createContext("/api/stats", new StatsApiHandler());
         server.createContext("/api/history", new HistoryApiHandler());
         server.createContext("/api/servers", new ServersApiHandler());
@@ -366,20 +374,17 @@ public class WebServer {
 
             JsonArray arr = new JsonArray();
             for (String c : discoveredCodes) {
+                String[] meta = LANG_META.get(c);
+                if (meta == null) {
+                    continue;
+                }
                 JsonObject item = new JsonObject();
                 item.addProperty("code", c);
-                String[] meta = LANG_META.get(c);
-                if (meta != null) {
-                    item.addProperty("name", meta[0]);
-                    item.addProperty("native", meta[1]);
-                    item.addProperty("flag", meta[2]);
-                    if ("ar".equals(c)) {
-                        item.addProperty("rtl", true);
-                    }
-                } else {
-                    item.addProperty("name", c.toUpperCase());
-                    item.addProperty("native", c.toUpperCase());
-                    item.addProperty("flag", c);
+                item.addProperty("name", meta[0]);
+                item.addProperty("native", meta[1]);
+                item.addProperty("flag", meta[2]);
+                if ("ar".equals(c)) {
+                    item.addProperty("rtl", true);
                 }
                 arr.add(item);
             }
@@ -434,6 +439,37 @@ public class WebServer {
             }
 
             serveStatic(exchange, "/web/dashboard.html", "text/html; charset=UTF-8");
+        }
+    }
+
+    private class ProfileHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!isAuthenticated(exchange)) {
+                sendRedirect(exchange, "/");
+                return;
+            }
+
+            serveStatic(exchange, "/web/index.html", "text/html; charset=UTF-8");
+        }
+    }
+
+    private class ApiMeHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!isAuthenticated(exchange)) {
+                String error = "{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}";
+                sendResponse(exchange, 401, "application/json; charset=UTF-8", error.getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+
+            exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
+            JsonObject root = new JsonObject();
+            root.addProperty("username", config != null ? config.getUsername() : "admin");
+            root.addProperty("is_superadmin", true);
+            root.add("permissions", new JsonObject());
+            byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
+            sendResponse(exchange, 200, "application/json; charset=UTF-8", bytes);
         }
     }
 

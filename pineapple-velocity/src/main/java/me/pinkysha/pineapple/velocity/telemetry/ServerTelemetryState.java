@@ -6,7 +6,13 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ServerTelemetryState {
 
@@ -44,6 +50,9 @@ public class ServerTelemetryState {
 
     private String latestFullJson;
     private final Deque<HistoryPoint> historyBuffer = new ArrayDeque<>(MAX_HISTORY_POINTS);
+    private final List<String> consoleLogs = new ArrayList<>();
+    private final Map<String, JsonObject> permissions = new ConcurrentHashMap<>();
+    private final Queue<String> pendingCommands = new ConcurrentLinkedQueue<>();
 
     public record HistoryPoint(long timestamp, double tps, double mspt, long ramUsed, long ramMax, int ramPct, double cpuProcess) {}
 
@@ -161,6 +170,26 @@ public class ServerTelemetryState {
                 this.maxPlayers = pl.has("max") ? pl.get("max").getAsInt() : 20;
             }
 
+            // Permissions sync from backend
+            if (obj.has("permissions") && obj.get("permissions").isJsonObject()) {
+                JsonObject permsObj = obj.getAsJsonObject("permissions");
+                this.permissions.clear();
+                for (String userKey : permsObj.keySet()) {
+                    if (permsObj.get(userKey).isJsonObject()) {
+                        this.permissions.put(userKey.trim().toLowerCase(), permsObj.getAsJsonObject(userKey));
+                    }
+                }
+            }
+
+            // Console logs sync from backend
+            if (obj.has("logs") && obj.get("logs").isJsonArray()) {
+                JsonArray logsArr = obj.getAsJsonArray("logs");
+                this.consoleLogs.clear();
+                for (JsonElement el : logsArr) {
+                    this.consoleLogs.add(el.getAsString());
+                }
+            }
+
             // Append to ring buffer
             addHistoryPoint(new HistoryPoint(this.lastSeen, this.tps, this.mspt, this.ramUsedMb, this.ramMaxMb, this.ramPct, this.cpuProcessPct));
         } catch (Exception e) {
@@ -173,6 +202,65 @@ public class ServerTelemetryState {
             historyBuffer.removeFirst();
         }
         historyBuffer.addLast(point);
+    }
+
+    public synchronized List<String> getConsoleLogs() {
+        return new ArrayList<>(consoleLogs);
+    }
+
+    public synchronized void addManualLog(String line) {
+        if (line != null) {
+            consoleLogs.add(line);
+            if (consoleLogs.size() > 200) {
+                consoleLogs.remove(0);
+            }
+        }
+    }
+
+    public void queueCommand(String command) {
+        if (command != null && !command.isBlank()) {
+            pendingCommands.add(command);
+        }
+    }
+
+    public List<String> pollPendingCommands() {
+        List<String> list = new ArrayList<>();
+        String cmd;
+        while ((cmd = pendingCommands.poll()) != null) {
+            list.add(cmd);
+        }
+        return list;
+    }
+
+    public boolean hasPermission(String username, String permKey, boolean isSuperAdmin) {
+        if (isSuperAdmin) return true;
+        if (username == null) return false;
+        JsonObject p = permissions.get(username.trim().toLowerCase());
+        if (p == null) return false;
+        return p.has(permKey) && p.get(permKey).getAsBoolean();
+    }
+
+    public JsonObject getUserPermissions(String username, boolean isSuperAdmin) {
+        JsonObject result = new JsonObject();
+        if (isSuperAdmin) {
+            result.addProperty("telemetry", true);
+            result.addProperty("console_view", true);
+            result.addProperty("console_command", true);
+            return result;
+        }
+        if (username != null) {
+            JsonObject p = permissions.get(username.trim().toLowerCase());
+            if (p != null) {
+                result.addProperty("telemetry", p.has("telemetry") && p.get("telemetry").getAsBoolean());
+                result.addProperty("console_view", p.has("console_view") && p.get("console_view").getAsBoolean());
+                result.addProperty("console_command", p.has("console_command") && p.get("console_command").getAsBoolean());
+                return result;
+            }
+        }
+        result.addProperty("telemetry", false);
+        result.addProperty("console_view", false);
+        result.addProperty("console_command", false);
+        return result;
     }
 
     public synchronized boolean checkTimeout(long now, long timeoutMillis) {
@@ -243,7 +331,6 @@ public class ServerTelemetryState {
         if (latestFullJson != null) {
             return latestFullJson;
         }
-        // Fallback minimal JSON when not yet connected
         return "{\"server_id\":\"" + serverId + "\",\"server_name\":\"" + serverName + "\",\"online\":" + online +
                 ",\"version\":\"" + version + "\",\"java_version\":\"" + javaVersion + "\",\"uptime\":\"0s\"," +
                 "\"server\":{\"id\":\"" + serverId + "\",\"name\":\"" + serverName + "\",\"version\":\"" + version + "\",\"java_version\":\"" + javaVersion + "\"}," +
@@ -251,7 +338,7 @@ public class ServerTelemetryState {
                 "\"tps\":{\"current\":" + tps + ",\"mspt\":" + mspt + ",\"1m\":" + tps1m + ",\"5m\":" + tps5m + ",\"15m\":" + tps15m + ",\"history\":[" + tps + "," + tps + "," + tps + "]}," +
                 "\"memory\":{\"used_mb\":" + ramUsedMb + ",\"heap_used_mb\":" + ramUsedMb + ",\"committed_mb\":" + ramCommittedMb + ",\"heap_committed_mb\":" + ramCommittedMb + ",\"max_mb\":" + ramMaxMb + ",\"heap_max_mb\":" + ramMaxMb + ",\"percentage\":" + ramPct + ",\"heap_percent\":" + ramPct + ",\"system_total_mb\":" + sysTotalMb + "}," +
                 "\"cpu\":{\"process_percentage\":" + cpuProcessPct + ",\"process_percent\":" + cpuProcessPct + ",\"system_percentage\":" + cpuSystemPct + ",\"system_percent\":" + cpuSystemPct + ",\"cores\":" + cpuCores + ",\"available_processors\":" + cpuCores + "}," +
-                "\"worlds\":{\"total_chunks\":" + totalChunks + ",\"total_entities\":" + totalEntities + ",\"list\":[]}," +
+                "\"worlds\":{\"total_chunks\":\" + totalChunks + \",\"total_entities\":\" + totalEntities + \",\"list\":[]}," +
                 "\"players\":{\"online\":" + onlinePlayers + ",\"max\":" + maxPlayers + ",\"list\":[]}}";
     }
 
@@ -266,23 +353,23 @@ public class ServerTelemetryState {
             if (!first) sb.append(',');
             first = false;
             sb.append("{\"t\":").append(hp.timestamp())
-              .append(",\"timestamp\":").append(hp.timestamp())
-              .append(",\"tps\":").append(hp.tps())
-              .append(",\"mspt\":").append(hp.mspt())
-              .append(",\"ram\":").append(hp.ramUsed())
-              .append(",\"ram_used_mb\":").append(hp.ramUsed())
-              .append(",\"ram_max\":").append(hp.ramMax())
-              .append(",\"ram_max_mb\":").append(hp.ramMax())
-              .append(",\"ram_pct\":").append(hp.ramPct())
-              .append(",\"cpu\":").append(hp.cpuProcess())
-              .append(",\"cpu_pct\":").append(hp.cpuProcess())
-              .append('}');
+                    .append(",\"timestamp\":").append(hp.timestamp())
+                    .append(",\"tps\":").append(hp.tps())
+                    .append(",\"mspt\":").append(hp.mspt())
+                    .append(",\"ram\":").append(hp.ramUsed())
+                    .append(",\"ram_used_mb\":").append(hp.ramUsed())
+                    .append(",\"ram_max\":").append(hp.ramMax())
+                    .append(",\"ram_max_mb\":").append(hp.ramMax())
+                    .append(",\"ram_pct\":").append(hp.ramPct())
+                    .append(",\"cpu\":").append(hp.cpuProcess())
+                    .append(",\"cpu_pct\":").append(hp.cpuProcess())
+                    .append('}');
         }
         sb.append(']');
         return sb.toString();
     }
 
-    public synchronized JsonObject toOverviewJsonObject() {
+    public JsonObject toOverviewJsonObject() {
         JsonObject obj = new JsonObject();
         obj.addProperty("id", serverId);
         obj.addProperty("server_id", serverId);
@@ -311,6 +398,8 @@ public class ServerTelemetryState {
         obj.addProperty("total_entities", totalEntities);
         long now = System.currentTimeMillis();
         obj.addProperty("last_seen_ago_ms", lastSeen > 0 ? (now - lastSeen) : -1);
+        obj.addProperty("players_online", onlinePlayers);
+        obj.addProperty("last_seen", lastSeen);
         return obj;
     }
 }

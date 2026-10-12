@@ -3,7 +3,6 @@
   "hero_tagline": "实时 Minecraft 服务器遥测与资源监控平台。",
   "hero_feat_1": "实时 TPS 与 MSPT",
   "hero_feat_2": "JVM 堆内存与主机 CPU",
-
   "auth_subtitle": "Paper 控制台访问",
   "auth_title": "服务器身份验证",
   "label_login": "管理员账号",
@@ -12,10 +11,8 @@
   "placeholder_password": "输入密码",
   "label_remember_me": "记住此会话",
   "btn_submit_login": "进入监控器",
-
   "host_config_title": "Paper 服务器配置",
   "host_config_desc": "认证与网络选项位于 plugins/PineAppleMonitor/config.yml。",
-
   "nav_logout": "退出登录",
   "dash_server_title": "Minecraft 服务器：",
   "dash_online_players": "在线玩家：",
@@ -25,7 +22,6 @@
   "btn_pause": "暂停流",
   "btn_resume": "继续流",
   "btn_refresh": "立即刷新",
-
   "card_tps_title": "服务器 TPS",
   "label_tps_breakdown": "TPS (1分, 5分, 15分)：",
   "label_tick_health": "Tick 健康状态：",
@@ -33,17 +29,14 @@
   "time_1m": "1 分钟",
   "time_30m": "30 分钟",
   "time_1h": "1 小时",
-
   "card_ram_title": "JVM 堆内存",
   "label_heap_committed": "已分配内存：",
   "label_system_ram": "主机系统内存：",
-
   "card_cpu_title": "CPU 负载",
   "label_process_cpu": "JVM 进程 CPU：",
   "label_system_cpu": "主机系统总负载：",
   "label_loaded_chunks": "总加载区块：",
   "label_total_entities": "实体总数：",
-
   "table_players_title": "在线玩家遥测",
   "table_players_sub": "实时玩家会话状态与网络延迟",
   "th_avatar": "头像",
@@ -52,14 +45,12 @@
   "th_gamemode": "模式",
   "th_ping": "延迟",
   "no_players_online": "当前暂无在线玩家",
-
   "table_worlds_title": "世界与区块生成",
   "table_worlds_sub": "各世界的加载区块及活跃实体数量",
   "th_world_name": "世界名称",
   "th_environment": "维度",
-  "th_chunks": "加载区块",
+  "th_chunks": "区块",
   "th_entities": "实体数量",
-
   "chart_collecting_data": "正在收集遥测数据...",
   "chart_waiting_history": "等待服务器历史数据...",
   "toast_welcome_back": "欢迎使用 Paper 监控器，{user}！",
@@ -78,5 +69,19 @@
   "hub_section_title": "网络服务器",
   "hub_section_sub": "选择服务器以查看实时性能遥测、3D 卡片与玩家动态",
   "lang_select_title": "选择语言",
-  "lang_search_placeholder": "搜索语言..."
+  "lang_search_placeholder": "搜索语言...",
+  "profile_badge": "用户资料",
+  "profile_tagline": "管理用户会话、更改密码与网络权限控制矩阵。",
+  "profile_status_user": "用户",
+  "profile_status_role": "特权级别",
+  "profile_subtitle": "会话管理",
+  "profile_title": "用户个人资料",
+  "profile_change_password": "修改密码",
+  "label_old_password": "当前密码",
+  "label_new_password": "新密码",
+  "btn_save_password": "保存密码",
+  "profile_permissions": "访问权限",
+  "btn_to_dashboard": "返回控制台",
+  "console_title": "服务器控制台与日志",
+  "console_sub": "来自Minecraft服务器的实时终端输出流"
 }
